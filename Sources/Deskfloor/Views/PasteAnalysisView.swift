@@ -9,6 +9,7 @@ struct PasteAnalysisView: View {
     @State private var sections: [ParsedSection] = []
     @State private var isParsing = false
     @State private var filterKind: ParsedSection.Kind?
+    @State private var filterThread: String?
     @State private var expandedSections: Set<UUID> = []
     @State private var composerPieces: [ComposerPiece] = []
     @State private var composerPrompt = ""
@@ -101,6 +102,23 @@ struct PasteAnalysisView: View {
                             .buttonStyle(.plain)
                             .help("\(kind.rawValue): \(count)")
                         }
+                    }
+                }
+
+                // Thread filter pills
+                let threads = Set(sections.map(\.inferredThread)).sorted()
+                if threads.count > 1 {
+                    Text("·")
+                        .foregroundStyle(.white.opacity(0.1))
+                    ForEach(threads, id: \.self) { thread in
+                        Button(action: {
+                            filterThread = filterThread == thread ? nil : thread
+                        }) {
+                            Text(thread)
+                                .font(.system(size: 8, weight: .medium, design: .monospaced))
+                                .foregroundStyle(filterThread == thread ? .white.opacity(0.8) : .white.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
 
@@ -221,7 +239,8 @@ struct PasteAnalysisView: View {
                 ScrollView {
                     LazyVStack(alignment: .leading, spacing: 1) {
                         ForEach($sections) { $section in
-                            if filterKind == nil || section.kind == filterKind {
+                            if (filterKind == nil || section.kind == filterKind)
+                                && (filterThread == nil || section.inferredThread == filterThread) {
                                 LoomSectionRow(
                                     section: $section,
                                     isExpanded: expandedSections.contains(section.id),
@@ -491,6 +510,29 @@ struct PasteAnalysisView: View {
         }
         flush()
 
+        // Post-process: infer thread context for each section
+        var currentThread = "main"
+        for i in sections.indices {
+            let content = sections[i].content.lowercased()
+            // Detect SSH/host context switches
+            if content.contains("ssh") && content.contains("nabla") || content.contains("35.252") {
+                currentThread = "nabla"
+            } else if content.contains("ssh") && content.contains("finml") || content.contains("5.189") || content.contains("helix-lab") {
+                currentThread = "finml"
+            } else if content.contains("ssh") && content.contains("gcp1") || content.contains("35.225") {
+                currentThread = "gcp1"
+            } else if content.contains("ssh") && content.contains("hyle") || content.contains("173.212") {
+                currentThread = "hyle"
+            } else if content.contains("gemini") && (content.contains("session") || content.contains("tmux send")) {
+                currentThread = "nabla:gemini"
+            } else if content.contains("deskfloor") || content.contains("swift build") || content.contains("contentview") {
+                currentThread = "deskfloor"
+            } else if content.contains("bespokesynth") || content.contains("juce") || content.contains("nanovg") {
+                currentThread = "bespokesynth"
+            }
+            sections[i].inferredThread = currentThread
+        }
+
         return sections
     }
 }
@@ -527,6 +569,17 @@ struct LoomSectionRow: View {
                 .padding(.vertical, 1)
                 .background(section.kind.color.opacity(0.08))
                 .clipShape(RoundedRectangle(cornerRadius: 3))
+
+                // Thread badge
+                if section.inferredThread != "main" {
+                    Text(section.inferredThread)
+                        .font(.system(size: 6, weight: .bold, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.4))
+                        .padding(.horizontal, 3)
+                        .padding(.vertical, 1)
+                        .background(.white.opacity(0.05))
+                        .clipShape(RoundedRectangle(cornerRadius: 2))
+                }
 
                 // Title / content preview
                 VStack(alignment: .leading, spacing: 1) {
@@ -599,6 +652,7 @@ struct ParsedSection: Identifiable {
     var content: String
     var title: String
     var isSelected = false
+    var inferredThread: String = "main"
 
     enum Kind: String, CaseIterable, Hashable {
         case userPrompt = "Prompt"
