@@ -109,7 +109,9 @@ struct DeskfloorApp: App {
         case .session(let h, let s):
             sshJump(host: h.name, session: s.name)
         case .project(let p):
-            if let repo = p.repo, let url = URL(string: "https://github.com/\(repo)") {
+            if let localPath = p.localPath {
+                openInITerm("cd \(localPath)")
+            } else if let repo = p.repo, let url = URL(string: "https://github.com/\(repo)") {
                 NSWorkspace.shared.open(url)
             }
         case .command(_, let cmd):

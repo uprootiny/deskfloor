@@ -68,6 +68,7 @@ struct Project: Codable, Identifiable, Hashable {
     var id = UUID()
     var name: String
     var repo: String?
+    var localPath: String?
     var description: String
     var why: String
     var status: Status
@@ -81,11 +82,17 @@ struct Project: Codable, Identifiable, Hashable {
     var progressNotes: [ProgressNote]
     var handoffReady: Bool
     var handoffNotes: String
+    var lastCommitMessage: String?
+    var lastCommitAuthor: String?
+    var gitBranch: String?
+    var dirtyFiles: Int?
+    var projectType: String?
 
     static func blank() -> Project {
         Project(
             name: "",
             repo: nil,
+            localPath: nil,
             description: "",
             why: "",
             status: .idea,
@@ -98,7 +105,12 @@ struct Project: Codable, Identifiable, Hashable {
             connections: [],
             progressNotes: [],
             handoffReady: false,
-            handoffNotes: ""
+            handoffNotes: "",
+            lastCommitMessage: nil,
+            lastCommitAuthor: nil,
+            gitBranch: nil,
+            dirtyFiles: nil,
+            projectType: nil
         )
     }
 }

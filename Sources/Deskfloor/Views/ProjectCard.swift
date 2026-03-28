@@ -40,6 +40,30 @@ struct ProjectCard: View {
                     .lineLimit(1)
             }
 
+            // Git info row
+            if let branch = project.gitBranch {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.triangle.branch")
+                        .font(.system(size: 8))
+                        .foregroundStyle(.white.opacity(0.3))
+                    Text(branch)
+                        .font(.system(size: 9, design: .monospaced))
+                        .foregroundStyle(.white.opacity(0.5))
+                        .lineLimit(1)
+                    if let dirty = project.dirtyFiles, dirty > 0 {
+                        Text("\(dirty) changed")
+                            .font(.system(size: 8, design: .monospaced))
+                            .foregroundStyle(Color(red: 0.9, green: 0.6, blue: 0.2))
+                    }
+                    if project.commitCount > 0 {
+                        Text("\(project.commitCount) commits")
+                            .font(.system(size: 8, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.3))
+                    }
+                    Spacer()
+                }
+            }
+
             HStack(spacing: 6) {
                 if let lastActivity = project.lastActivity {
                     Text(relativeDate(lastActivity))
@@ -47,14 +71,14 @@ struct ProjectCard: View {
                         .foregroundStyle(.white.opacity(0.4))
                 }
 
-                // Language tag
-                if let lang = project.tags.first, !lang.isEmpty {
-                    Text(lang)
+                // Language / project type tag
+                if let type = project.projectType ?? project.tags.first, !type.isEmpty {
+                    Text(type)
                         .font(.system(size: 8, weight: .medium, design: .monospaced))
                         .padding(.horizontal, 4)
                         .padding(.vertical, 1)
-                        .background(languageColor(lang).opacity(0.2))
-                        .foregroundStyle(languageColor(lang))
+                        .background(languageColor(type).opacity(0.2))
+                        .foregroundStyle(languageColor(type))
                         .clipShape(RoundedRectangle(cornerRadius: 3))
                 }
 

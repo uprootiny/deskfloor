@@ -202,6 +202,41 @@ struct ContentView: View {
                     .frame(width: 20, height: 20)
             }
 
+            if store.isScanning {
+                ProgressView()
+                    .scaleEffect(0.6)
+                    .frame(width: 20, height: 20)
+            }
+
+            Button(action: {
+                store.scanLocalProjects()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "folder.badge.gearshape")
+                        .font(.system(size: 11))
+                    Text("Scan")
+                        .font(.system(size: 11))
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.5))
+            .disabled(store.isScanning)
+            .help("Scan ~/Nissan/ for local projects")
+
+            Button(action: {
+                store.refreshGitInfo()
+            }) {
+                HStack(spacing: 4) {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.system(size: 11))
+                    Text("Refresh")
+                        .font(.system(size: 11))
+                }
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.5))
+            .help("Refresh git status for all projects")
+
             Button(action: importFromGitHub) {
                 HStack(spacing: 4) {
                     Image(systemName: "square.and.arrow.down")

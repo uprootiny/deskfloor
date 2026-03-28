@@ -146,6 +146,11 @@ enum GitHubImporter {
         return projects
     }
 
+    /// Public version for local filesystem scanner.
+    static func guessPerspectiveForLocal(name: String, language: String?, path: String?) -> Perspective {
+        return guessPerspective(name: name, language: language, description: path)
+    }
+
     private static func guessPerspective(name: String, language: String?, description: String?) -> Perspective {
         let n = name.lowercased()
         let d = (description ?? "").lowercased()

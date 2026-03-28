@@ -44,10 +44,11 @@ struct LauncherPanelView: View {
             items.append(.prompt(prompt))
         }
 
-        let active = store.projects
-            .filter { $0.status == .active }
+        // Show all non-archived projects sorted by activity
+        let visible = store.projects
+            .filter { $0.status != .archived }
             .sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
-        for project in active.prefix(30) {
+        for project in visible.prefix(50) {
             items.append(.project(project))
         }
 
@@ -325,7 +326,7 @@ struct LauncherPanelView: View {
         switch item {
         case .host: return "ssh"
         case .session: return "attach"
-        case .project: return "open"
+        case .project(let p): return p.localPath != nil ? "cd" : "open"
         case .command: return "run"
         case .prompt: return "copy"
         case .historyCommand: return "run"
@@ -383,6 +384,9 @@ struct LauncherPanelView: View {
         case .session(let h, let s):
             return "Attach tmux session \(s.name) on \(h.name)"
         case .project(let p):
+            if p.localPath != nil {
+                return "Open \(p.name) in iTerm"
+            }
             return "Open \(p.repo ?? p.name) on GitHub"
         case .command(let label, _):
             return "Run: \(label)"
@@ -525,7 +529,7 @@ struct NielsenRow: View {
         switch item {
         case .host: "SSH"
         case .session: "ATTACH"
-        case .project: "OPEN"
+        case .project(let p): p.localPath != nil ? "CD" : "OPEN"
         case .command: "RUN"
         case .prompt: "COPY"
         case .historyCommand: "RUN"

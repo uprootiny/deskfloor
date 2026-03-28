@@ -40,7 +40,13 @@ enum LauncherItem: Identifiable {
         case .session(let h, let s):
             return "\(h.name) · \(s.windows) win · \(s.attached ? "attached" : "detached")"
         case .project(let p):
-            return p.description
+            var parts: [String] = []
+            if let type = p.projectType { parts.append(type) }
+            if let branch = p.gitBranch { parts.append(branch) }
+            if let dirty = p.dirtyFiles, dirty > 0 { parts.append("\(dirty) changed") }
+            if p.commitCount > 0 { parts.append("\(p.commitCount) commits") }
+            if parts.isEmpty { return p.description }
+            return parts.joined(separator: " · ")
         case .command(_, let cmd):
             return cmd
         case .prompt(let p):
@@ -67,7 +73,7 @@ enum LauncherItem: Identifiable {
         switch self {
         case .host(let h): return [h.name, "ssh", "server"]
         case .session(let h, let s): return [h.name, s.name, "tmux"]
-        case .project(let p): return [p.name] + p.tags
+        case .project(let p): return [p.name] + p.tags + [p.projectType, p.gitBranch].compactMap { $0 }
         case .command(let label, _): return label.split(separator: " ").map(String.init)
         case .prompt(let p): return p.tags
         case .historyCommand(let h):

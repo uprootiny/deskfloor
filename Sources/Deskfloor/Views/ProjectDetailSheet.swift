@@ -56,6 +56,120 @@ struct ProjectDetailSheet: View {
                         }
                     }
 
+                    // Git info (read-only)
+                    if project.localPath != nil || project.gitBranch != nil {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("GIT STATUS")
+                                .font(.system(size: 10, weight: .medium))
+                                .foregroundStyle(.white.opacity(0.4))
+
+                            HStack(spacing: 16) {
+                                if let branch = project.gitBranch {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "arrow.triangle.branch")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.white.opacity(0.5))
+                                        Text(branch)
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundStyle(.white.opacity(0.7))
+                                    }
+                                }
+                                if project.commitCount > 0 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "number")
+                                            .font(.system(size: 10))
+                                            .foregroundStyle(.white.opacity(0.5))
+                                        Text("\(project.commitCount) commits")
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundStyle(.white.opacity(0.7))
+                                    }
+                                }
+                                if let dirty = project.dirtyFiles {
+                                    HStack(spacing: 4) {
+                                        Circle()
+                                            .fill(dirty > 0
+                                                ? Color(red: 0.9, green: 0.6, blue: 0.2)
+                                                : Color(red: 0.3, green: 0.7, blue: 0.5))
+                                            .frame(width: 6, height: 6)
+                                        Text(dirty > 0 ? "\(dirty) dirty" : "clean")
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundStyle(.white.opacity(0.7))
+                                    }
+                                }
+                            }
+
+                            if let msg = project.lastCommitMessage {
+                                HStack(spacing: 4) {
+                                    Text("Last:")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.white.opacity(0.4))
+                                    Text(msg)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.6))
+                                        .lineLimit(2)
+                                }
+                            }
+                            if let author = project.lastCommitAuthor {
+                                HStack(spacing: 4) {
+                                    Text("By:")
+                                        .font(.system(size: 10))
+                                        .foregroundStyle(.white.opacity(0.4))
+                                    Text(author)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundStyle(.white.opacity(0.6))
+                                }
+                            }
+                        }
+                        .padding(8)
+                        .background(Color.white.opacity(0.04))
+                        .clipShape(RoundedRectangle(cornerRadius: 6))
+                    }
+
+                    // Action buttons
+                    if let localPath = project.localPath {
+                        HStack(spacing: 8) {
+                            Button(action: {
+                                DeskfloorApp.openInITerm("cd \(localPath)")
+                            }) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "terminal")
+                                        .font(.system(size: 10))
+                                    Text("Open in iTerm")
+                                        .font(.system(size: 11))
+                                }
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(.white.opacity(0.6))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.06))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+
+                            if let repo = project.repo {
+                                Button(action: {
+                                    if let url = URL(string: "https://github.com/\(repo)") {
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                }) {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "link")
+                                            .font(.system(size: 10))
+                                        Text("GitHub")
+                                            .font(.system(size: 11))
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .foregroundStyle(.white.opacity(0.6))
+                                .padding(.horizontal, 8)
+                                .padding(.vertical, 4)
+                                .background(Color.white.opacity(0.06))
+                                .clipShape(RoundedRectangle(cornerRadius: 4))
+                            }
+
+                            Spacer()
+                        }
+                    }
+
                     HStack(spacing: 16) {
                         field("Status") {
                             Picker("", selection: $project.status) {
