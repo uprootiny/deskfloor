@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/master.swiftdeps"
+  },
+  "/Users/uprootiny/Nissan/nlp-engine/Sources/Harvest/main.swift": {
+    "dependencies": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main.d",
+    "object": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main.swift.o",
+    "swiftmodule": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main~partial.swiftmodule",
+    "swift-dependencies": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main.swiftdeps"
+  }
+}

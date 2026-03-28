@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/master.swiftdeps"
+  },
+  "/Users/uprootiny/Nissan/nlp-engine/Sources/NLPEngine/TextAnalyzer.swift": {
+    "dependencies": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.d",
+    "object": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swift.o",
+    "swiftmodule": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer~partial.swiftmodule",
+    "swift-dependencies": "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swiftdeps"
+  }
+}

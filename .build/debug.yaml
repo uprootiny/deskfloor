@@ -1,0 +1,153 @@
+client:
+  name: basic
+  file-system: device-agnostic
+tools: {}
+targets:
+  "Deskfloor-arm64-apple-macosx15.0-debug.exe": ["<Deskfloor-arm64-apple-macosx15.0-debug.exe>"]
+  "Deskfloor-arm64-apple-macosx15.0-debug.module": ["<Deskfloor-arm64-apple-macosx15.0-debug.module>"]
+  "Harvest-arm64-apple-macosx15.0-debug.module": ["<Harvest-arm64-apple-macosx15.0-debug.module>"]
+  "NLPEngine-arm64-apple-macosx15.0-debug.module": ["<NLPEngine-arm64-apple-macosx15.0-debug.module>"]
+  "PackageStructure": ["<PackageStructure>"]
+  "main": ["<Deskfloor-arm64-apple-macosx15.0-debug.exe>","<Deskfloor-arm64-apple-macosx15.0-debug.module>"]
+  "nlp-harvest-arm64-apple-macosx15.0-debug.exe": ["<nlp-harvest-arm64-apple-macosx15.0-debug.exe>"]
+  "test": ["<Deskfloor-arm64-apple-macosx15.0-debug.exe>","<Deskfloor-arm64-apple-macosx15.0-debug.module>"]
+default: "main"
+nodes:
+  "/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/":
+    is-directory-structure: true
+    content-exclusion-patterns: [".git",".build"]
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor":
+    is-mutated: true
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest":
+    is-mutated: true
+commands:
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor-entitlement.plist"]
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor-entitlement.plist"
+
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/AppKit/HotkeyManager.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/AppKit/LauncherWindowController.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/DeskfloorApp.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/Encumbrance.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/FleetStore.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/LauncherItem.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/Project.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/ProjectStore.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Utilities/GitHubImporter.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/BoardView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/ContentView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/GraphView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/LauncherPanel.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/PerspectiveView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/ProjectCard.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/ProjectDetailSheet.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/SidebarView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/TimelineView.swift"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/sources"]
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/sources"
+
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/BoardView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ContentView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/DeskfloorApp.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Encumbrance.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/FleetStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GitHubImporter.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GraphView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/HotkeyManager.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherItem.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherPanel.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherWindowController.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/PerspectiveView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Project.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectCard.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectDetailSheet.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/SidebarView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/TimelineView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swift.o"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.product/Objects.LinkFileList"
+
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/uprootiny/Nissan/nlp-engine/Sources/Harvest/main.swift"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/sources"]
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/sources"
+
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/sources":
+    tool: write-auxiliary-file
+    inputs: ["<sources-file-list>","/Users/uprootiny/Nissan/nlp-engine/Sources/NLPEngine/TextAnalyzer.swift"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/sources"]
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/sources"
+
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest-entitlement.plist":
+    tool: write-auxiliary-file
+    inputs: ["<entitlement-plist>","<com.apple.security.get-task-allow>"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest-entitlement.plist"]
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest-entitlement.plist"
+
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest.product/Objects.LinkFileList":
+    tool: write-auxiliary-file
+    inputs: ["<link-file-list>","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swift.o"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest.product/Objects.LinkFileList"]
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest.product/Objects.LinkFileList"
+
+  "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt":
+    tool: write-auxiliary-file
+    inputs: ["<swift-get-version>","/Library/Developer/CommandLineTools/usr/bin/swiftc"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"]
+    always-out-of-date: "true"
+    description: "Write auxiliary file /Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt"
+
+  "<Deskfloor-arm64-apple-macosx15.0-debug.exe>":
+    tool: phony
+    inputs: ["<Deskfloor-arm64-apple-macosx15.0-debug.exe-CodeSigning>"]
+    outputs: ["<Deskfloor-arm64-apple-macosx15.0-debug.exe>"]
+
+  "<Deskfloor-arm64-apple-macosx15.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/HotkeyManager.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherWindowController.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/DeskfloorApp.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Encumbrance.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/FleetStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherItem.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Project.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GitHubImporter.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/BoardView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ContentView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GraphView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherPanel.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/PerspectiveView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectCard.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectDetailSheet.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/SidebarView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/TimelineView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Deskfloor.swiftmodule"]
+    outputs: ["<Deskfloor-arm64-apple-macosx15.0-debug.module>"]
+
+  "<Harvest-arm64-apple-macosx15.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Harvest.swiftmodule"]
+    outputs: ["<Harvest-arm64-apple-macosx15.0-debug.module>"]
+
+  "<NLPEngine-arm64-apple-macosx15.0-debug.module>":
+    tool: phony
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/NLPEngine.swiftmodule"]
+    outputs: ["<NLPEngine-arm64-apple-macosx15.0-debug.module>"]
+
+  "<nlp-harvest-arm64-apple-macosx15.0-debug.exe>":
+    tool: phony
+    inputs: ["<nlp-harvest-arm64-apple-macosx15.0-debug.exe-CodeSigning>"]
+    outputs: ["<nlp-harvest-arm64-apple-macosx15.0-debug.exe>"]
+
+  "C.Deskfloor-arm64-apple-macosx15.0-debug.exe":
+    tool: shell
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/BoardView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ContentView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/DeskfloorApp.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Encumbrance.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/FleetStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GitHubImporter.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GraphView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/HotkeyManager.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherItem.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherPanel.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherWindowController.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/PerspectiveView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Project.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectCard.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectDetailSheet.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/SidebarView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/TimelineView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.product/Objects.LinkFileList"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/Deskfloor"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-L","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug","-o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor","-module-name","Deskfloor","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_Deskfloor_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.product/Objects.LinkFileList","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Deskfloor.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/NLPEngine.swiftmodule","-F","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xlinker","-rpath","-Xlinker","/Library/Developer/CommandLineTools/Library/Developer/Frameworks"]
+
+  "C.Deskfloor-arm64-apple-macosx15.0-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor-entitlement.plist"]
+    outputs: ["<Deskfloor-arm64-apple-macosx15.0-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/Deskfloor"
+    args: ["codesign","--force","--sign","-","--entitlements","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor-entitlement.plist","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor"]
+
+  "C.Deskfloor-arm64-apple-macosx15.0-debug.module":
+    tool: shell
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/AppKit/HotkeyManager.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/AppKit/LauncherWindowController.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/DeskfloorApp.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/Encumbrance.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/FleetStore.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/LauncherItem.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/Project.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Models/ProjectStore.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Utilities/GitHubImporter.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/BoardView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/ContentView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/GraphView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/LauncherPanel.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/PerspectiveView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/ProjectCard.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/ProjectDetailSheet.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/SidebarView.swift","/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/Views/TimelineView.swift","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/NLPEngine.swiftmodule","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/sources"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/HotkeyManager.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherWindowController.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/DeskfloorApp.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Encumbrance.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/FleetStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherItem.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/Project.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectStore.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GitHubImporter.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/BoardView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ContentView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/GraphView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/LauncherPanel.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/PerspectiveView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectCard.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/ProjectDetailSheet.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/SidebarView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/TimelineView.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Deskfloor.swiftmodule"]
+    description: "Compiling Swift Module 'Deskfloor' (18 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","Deskfloor","-emit-dependencies","-emit-module","-emit-module-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Deskfloor.swiftmodule","-output-file-map","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/output-file-map.json","-incremental","-c","@/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Deskfloor.build/sources","-I","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-enable-batch-mode","-index-store-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j10","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","Deskfloor_main","-swift-version","5","-F","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","deskfloor"]
+
+  "C.Harvest-arm64-apple-macosx15.0-debug.module":
+    tool: shell
+    inputs: ["/Users/uprootiny/Nissan/nlp-engine/Sources/Harvest/main.swift","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/NLPEngine.swiftmodule","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/sources"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Harvest.swiftmodule"]
+    description: "Compiling Swift Module 'Harvest' (1 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","Harvest","-emit-dependencies","-emit-module","-emit-module-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Harvest.swiftmodule","-output-file-map","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/output-file-map.json","-incremental","-c","@/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/sources","-I","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-enable-batch-mode","-index-store-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j10","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-Xfrontend","-entry-point-function-name","-Xfrontend","Harvest_main","-parse-as-library","-swift-version","5","-F","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","nlp_engine"]
+
+  "C.NLPEngine-arm64-apple-macosx15.0-debug.module":
+    tool: shell
+    inputs: ["/Users/uprootiny/Nissan/nlp-engine/Sources/NLPEngine/TextAnalyzer.swift","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/swift-version--1AB21518FC5DEDBE.txt","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/sources"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/NLPEngine.swiftmodule"]
+    description: "Compiling Swift Module 'NLPEngine' (1 sources)"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-module-name","NLPEngine","-emit-dependencies","-emit-module","-emit-module-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/NLPEngine.swiftmodule","-output-file-map","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/output-file-map.json","-parse-as-library","-incremental","-c","@/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/sources","-I","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules","-target","arm64-apple-macosx14.0","-enable-batch-mode","-index-store-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/index/store","-Onone","-enable-testing","-j10","-DSWIFT_PACKAGE","-DDEBUG","-module-cache-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/ModuleCache","-parseable-output","-parse-as-library","-emit-objc-header","-emit-objc-header-path","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/NLPEngine-Swift.h","-swift-version","5","-F","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xcc","-isysroot","-Xcc","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-Xcc","-fPIC","-Xcc","-g","-package-name","nlp_engine"]
+
+  "C.nlp-harvest-arm64-apple-macosx15.0-debug.exe":
+    tool: shell
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Harvest.build/main.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/TextAnalyzer.swift.o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest.product/Objects.LinkFileList"]
+    outputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest"]
+    description: "Linking ./.build/arm64-apple-macosx/debug/nlp-harvest"
+    args: ["/Library/Developer/CommandLineTools/usr/bin/swiftc","-L","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug","-o","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest","-module-name","nlp_harvest","-Xlinker","-no_warn_duplicate_libraries","-emit-executable","-Xlinker","-alias","-Xlinker","_Harvest_main","-Xlinker","_main","-Xlinker","-rpath","-Xlinker","@loader_path","@/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest.product/Objects.LinkFileList","-target","arm64-apple-macosx14.0","-Xlinker","-add_ast_path","-Xlinker","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/Harvest.swiftmodule","-Xlinker","-add_ast_path","-Xlinker","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/Modules/NLPEngine.swiftmodule","-F","/Library/Developer/CommandLineTools/Library/Developer/Frameworks","-sdk","/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk","-g","-Xlinker","-rpath","-Xlinker","/Library/Developer/CommandLineTools/Library/Developer/Frameworks"]
+
+  "C.nlp-harvest-arm64-apple-macosx15.0-debug.exe-entitlements":
+    tool: shell
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest-entitlement.plist"]
+    outputs: ["<nlp-harvest-arm64-apple-macosx15.0-debug.exe-CodeSigning>"]
+    description: "Applying debug entitlements to ./.build/arm64-apple-macosx/debug/nlp-harvest"
+    args: ["codesign","--force","--sign","-","--entitlements","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest-entitlement.plist","/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/nlp-harvest"]
+
+  "PackageStructure":
+    tool: package-structure-tool
+    inputs: ["/Users/uprootiny/Nissan/deskfloor/Sources/Deskfloor/","/Users/uprootiny/Nissan/deskfloor/Package.swift","/Users/uprootiny/Nissan/deskfloor/Package.resolved"]
+    outputs: ["<PackageStructure>"]
+    description: "Planning build"
+    allow-missing-inputs: true
+
