@@ -46,7 +46,30 @@ struct GraphView: View {
                         )
                         .onTapGesture {
                             selectedProject = project
-                            // sheet shows automatically
+                        }
+                        .contextMenu {
+                            Button(action: {
+                                let cmd: String
+                                if let path = project.localPath {
+                                    cmd = "cd \(path) && claude"
+                                } else if let repo = project.repo {
+                                    cmd = "cd ~/Nissan && gh repo clone \(repo) 2>/dev/null; cd ~/Nissan/\(project.name) && claude"
+                                } else {
+                                    cmd = "claude"
+                                }
+                                DeskfloorApp.openInITerm(cmd)
+                            }) {
+                                Label("Run Agent Session", systemImage: "play.fill")
+                            }
+                            if let repo = project.repo {
+                                Button(action: {
+                                    if let url = URL(string: "https://github.com/\(repo)") {
+                                        NSWorkspace.shared.open(url)
+                                    }
+                                }) {
+                                    Label("Open on GitHub", systemImage: "link")
+                                }
+                            }
                         }
                 }
             }
