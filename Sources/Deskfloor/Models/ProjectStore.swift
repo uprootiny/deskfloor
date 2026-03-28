@@ -20,6 +20,7 @@ final class ProjectStore {
     var projects: [Project] = []
     var sortOrder: SortOrder = .lastActivity
     var isScanning = false
+    var scanProgress: (done: Int, total: Int) = (0, 0)
 
     private let fileURL: URL
     private let scanRoot: URL
@@ -165,23 +166,40 @@ final class ProjectStore {
     }
 
     /// Refresh git info for all projects that have a local path.
+    /// Runs asynchronously — updates projects one at a time so UI stays responsive.
     func refreshGitInfo() {
-        for i in projects.indices {
-            guard let path = projects[i].localPath else { continue }
-            let dirURL = URL(fileURLWithPath: path)
-            let gitInfo = Self.readGitInfo(at: dirURL)
+        guard !isScanning else { return }
+        isScanning = true
+        Task.detached(priority: .utility) { [self] in
+            let localProjects = await MainActor.run { projects.enumerated().filter { $0.element.localPath != nil } }
 
-            projects[i].lastActivity = gitInfo.lastCommitDate ?? projects[i].lastActivity
-            projects[i].commitCount = gitInfo.commitCount > 0 ? gitInfo.commitCount : projects[i].commitCount
-            projects[i].lastCommitMessage = gitInfo.lastMessage ?? projects[i].lastCommitMessage
-            projects[i].lastCommitAuthor = gitInfo.lastAuthor ?? projects[i].lastCommitAuthor
-            projects[i].gitBranch = gitInfo.branch ?? projects[i].gitBranch
-            projects[i].dirtyFiles = gitInfo.dirtyCount
-            if let remote = gitInfo.remoteRepo, projects[i].repo == nil {
-                projects[i].repo = remote
+            await MainActor.run { scanProgress = (0, localProjects.count) }
+
+            for (idx, (i, project)) in localProjects.enumerated() {
+                guard let path = project.localPath else { continue }
+                let dirURL = URL(fileURLWithPath: path)
+                let gitInfo = Self.readGitInfo(at: dirURL)
+
+                await MainActor.run {
+                    scanProgress = (idx + 1, localProjects.count)
+                    projects[i].lastActivity = gitInfo.lastCommitDate ?? projects[i].lastActivity
+                    projects[i].commitCount = gitInfo.commitCount > 0 ? gitInfo.commitCount : projects[i].commitCount
+                    projects[i].lastCommitMessage = gitInfo.lastMessage ?? projects[i].lastCommitMessage
+                    projects[i].lastCommitAuthor = gitInfo.lastAuthor ?? projects[i].lastCommitAuthor
+                    projects[i].gitBranch = gitInfo.branch ?? projects[i].gitBranch
+                    projects[i].dirtyFiles = gitInfo.dirtyCount
+                    if let remote = gitInfo.remoteRepo, projects[i].repo == nil {
+                        projects[i].repo = remote
+                    }
+                }
+            }
+
+            await MainActor.run {
+                save()
+                isScanning = false
+                NSLog("[ProjectStore] Git refresh complete for \(localProjects.count) projects")
             }
         }
-        save()
     }
 
     // MARK: - Git Helpers

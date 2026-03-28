@@ -209,9 +209,16 @@ struct ContentView: View {
             }
 
             if store.isScanning {
-                ProgressView()
-                    .scaleEffect(0.6)
-                    .frame(width: 20, height: 20)
+                HStack(spacing: 4) {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                        .frame(width: 16, height: 16)
+                    if store.scanProgress.total > 0 {
+                        Text("\(store.scanProgress.done)/\(store.scanProgress.total)")
+                            .font(.system(size: 9, design: .monospaced))
+                            .foregroundStyle(.white.opacity(0.4))
+                    }
+                }
             }
 
             Button(action: {
