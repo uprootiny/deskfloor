@@ -1,4 +1,5 @@
 import Foundation
+import SwiftUI
 
 /// Central observable data store. All background pollers write here.
 /// All views read from here. Single source of truth.
@@ -6,10 +7,14 @@ import Foundation
 final class DataBus {
     // Fleet
     var fleetHosts: [String: HostSnapshot] = [:]
-    var fleetAlerts: [AttentionItem] = []
     var lastFleetPoll: Date?
 
-    // Attention — the key abstraction
+    // Project health
+    var projectAlerts: [AttentionItem] = []
+    var ciStatuses: [String: CIRun] = [:]  // repo name → latest run
+    var lastCIPoll: Date?
+
+    // Attention — the merged, sorted view
     var attentionItems: [AttentionItem] = []
 
     // Polling state
@@ -17,7 +22,8 @@ final class DataBus {
     private var pollTimer: Timer?
     private let agentSlackBase = "http://173.212.203.211:9400"
 
-    struct HostSnapshot {
+    struct HostSnapshot: Identifiable {
+        var id: String { name }
         let name: String
         let sigil: String
         var load: Double
@@ -26,7 +32,21 @@ final class DataBus {
         var claudeCount: Int
         var tmuxCount: Int
         var reachable: Bool
-        var sessions: [String] // tmux session names
+        var sessions: [String]
+    }
+
+    struct CIRun: Identifiable {
+        var id: String { repo }
+        let repo: String
+        let status: CIStatus
+        let conclusion: String?
+        let branch: String
+        let updatedAt: Date?
+        let url: String?
+
+        enum CIStatus: String {
+            case completed, inProgress = "in_progress", queued, failure, unknown
+        }
     }
 
     // MARK: - Polling
@@ -49,7 +69,16 @@ final class DataBus {
     func poll() {
         Task.detached(priority: .utility) { [weak self] in
             await self?.pollFleet()
-            await self?.generateAlerts()
+            await self?.generateAlerts(projects: [])
+        }
+    }
+
+    /// Full poll including project health analysis
+    func poll(projects: [Project]) {
+        Task.detached(priority: .utility) { [weak self] in
+            await self?.pollFleet()
+            await self?.pollCI(projects: projects)
+            await self?.generateAlerts(projects: projects)
         }
     }
 
@@ -99,20 +128,84 @@ final class DataBus {
         }
     }
 
+    // MARK: - CI Polling (via gh CLI)
+
+    private func pollCI(projects: [Project]) async {
+        let repos = projects.compactMap(\.repo).filter { !$0.isEmpty }
+        guard !repos.isEmpty else { return }
+
+        // Poll up to 20 repos to avoid hammering GitHub
+        let batch = Array(repos.prefix(20))
+        var runs: [String: CIRun] = [:]
+
+        for repo in batch {
+            if let run = await fetchLatestCIRun(repo: repo) {
+                runs[repo] = run
+            }
+        }
+
+        await MainActor.run {
+            self.ciStatuses = runs
+            self.lastCIPoll = Date()
+        }
+    }
+
+    private func fetchLatestCIRun(repo: String) async -> CIRun? {
+        let process = Process()
+        let pipe = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        process.arguments = ["gh", "run", "list", "-R", repo, "--limit", "1", "--json", "status,conclusion,headBranch,updatedAt,url"]
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+            guard process.terminationStatus == 0 else { return nil }
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            guard let arr = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+                  let raw = arr.first else { return nil }
+
+            let statusStr = raw["status"] as? String ?? "unknown"
+            let conclusion = raw["conclusion"] as? String
+            let branch = raw["headBranch"] as? String ?? "?"
+            let urlStr = raw["url"] as? String
+
+            var updatedAt: Date?
+            if let dateStr = raw["updatedAt"] as? String {
+                let fmt = ISO8601DateFormatter()
+                updatedAt = fmt.date(from: dateStr)
+            }
+
+            let status: CIRun.CIStatus
+            if let conclusion, conclusion == "failure" {
+                status = .failure
+            } else {
+                status = CIRun.CIStatus(rawValue: statusStr) ?? .unknown
+            }
+
+            return CIRun(repo: repo, status: status, conclusion: conclusion,
+                         branch: branch, updatedAt: updatedAt, url: urlStr)
+        } catch {
+            return nil
+        }
+    }
+
     // MARK: - Alert Generation
 
-    private func generateAlerts() async {
+    func generateAlerts(projects: [Project]) async {
         var alerts: [AttentionItem] = []
 
+        // --- Fleet alerts ---
         for (_, host) in fleetHosts {
-            // Disk critical
             if host.diskPercent >= 90 {
                 alerts.append(AttentionItem(
                     severity: .critical,
                     source: "fleet:\(host.name)",
                     title: "\(host.sigil) \(host.name) disk at \(host.diskPercent)%",
                     detail: "Disk is critically full. SSH in and clean up.",
-                    actions: [.sshTo(host.name)]
+                    actions: [.sshTo(host.name), .dispatch(context: "Disk cleanup on \(host.name): \(host.diskPercent)% full. Find large files and clean up.")]
                 ))
             } else if host.diskPercent >= 80 {
                 alerts.append(AttentionItem(
@@ -124,7 +217,6 @@ final class DataBus {
                 ))
             }
 
-            // High load
             if host.load > 5 {
                 alerts.append(AttentionItem(
                     severity: .warning,
@@ -135,7 +227,6 @@ final class DataBus {
                 ))
             }
 
-            // Unreachable
             if !host.reachable {
                 alerts.append(AttentionItem(
                     severity: .critical,
@@ -143,6 +234,64 @@ final class DataBus {
                     title: "\(host.sigil) \(host.name) unreachable",
                     detail: "Host is not responding to fleet metrics poll.",
                     actions: [.sshTo(host.name)]
+                ))
+            }
+        }
+
+        // --- CI alerts ---
+        for (repo, run) in ciStatuses {
+            if run.status == .failure || run.conclusion == "failure" {
+                var actions: [AttentionItem.Action] = []
+                if let urlStr = run.url, let url = URL(string: urlStr) {
+                    actions.append(.openURL(url))
+                }
+                actions.append(.dispatch(context: "CI is failing on \(repo) (branch: \(run.branch)). Investigate and fix."))
+                alerts.append(AttentionItem(
+                    severity: .critical,
+                    source: "ci:\(repo)",
+                    title: "CI failing: \(repo.split(separator: "/").last ?? Substring(repo))",
+                    detail: "Branch \(run.branch) — last run failed.",
+                    actions: actions
+                ))
+            }
+        }
+
+        // --- Project health alerts ---
+        let now = Date()
+        for project in projects where project.status == .active {
+            // Dirty files sitting uncommitted
+            if let dirty = project.dirtyFiles, dirty > 5 {
+                alerts.append(AttentionItem(
+                    severity: .info,
+                    source: "git:\(project.name)",
+                    title: "\(project.name): \(dirty) dirty files",
+                    detail: "Uncommitted changes piling up.",
+                    actions: [.openProject(project.id)]
+                ))
+            }
+
+            // Stale active project (no commits in 14+ days)
+            if let lastActivity = project.lastActivity,
+               now.timeIntervalSince(lastActivity) > 14 * 86400 {
+                let days = Int(now.timeIntervalSince(lastActivity) / 86400)
+                alerts.append(AttentionItem(
+                    severity: .info,
+                    source: "stale:\(project.name)",
+                    title: "\(project.name): stale \(days)d",
+                    detail: "Active project with no commits in \(days) days. Pause or push?",
+                    actions: [.openProject(project.id)]
+                ))
+            }
+
+            // Has encumbrances
+            if !project.encumbrances.isEmpty {
+                let kinds = project.encumbrances.map(\.kind.rawValue).joined(separator: ", ")
+                alerts.append(AttentionItem(
+                    severity: .warning,
+                    source: "encumbrance:\(project.name)",
+                    title: "\(project.name): blocked",
+                    detail: "Encumbrances: \(kinds)",
+                    actions: [.openProject(project.id)]
                 ))
             }
         }
@@ -204,5 +353,3 @@ struct AttentionItem: Identifiable {
         case openProject(UUID)
     }
 }
-
-import SwiftUI
