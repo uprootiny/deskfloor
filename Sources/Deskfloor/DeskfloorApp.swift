@@ -5,6 +5,9 @@ import AppKit
 struct DeskfloorApp: App {
     @State private var store = ProjectStore()
     @State private var fleet = FleetStore()
+    @State private var promptStore = PromptStore()
+    @State private var historyStore = HistoryStore()
+    @State private var frecency = FrecencyTracker()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -17,6 +20,9 @@ struct DeskfloorApp: App {
                     // Wire stores to AppDelegate for launcher access
                     appDelegate.store = store
                     appDelegate.fleet = fleet
+                    appDelegate.promptStore = promptStore
+                    appDelegate.historyStore = historyStore
+                    appDelegate.frecency = frecency
                     fleet.startPolling()
                 }
         }
@@ -95,7 +101,8 @@ struct DeskfloorApp: App {
         }
     }
 
-    static func executeAction(_ item: LauncherItem) {
+    static func executeAction(_ item: LauncherItem, promptStore: PromptStore? = nil, frecency: FrecencyTracker? = nil) {
+        frecency?.recordAccess(itemID: item.id)
         switch item {
         case .host(let h):
             sshJump(host: h.name)
@@ -107,6 +114,12 @@ struct DeskfloorApp: App {
             }
         case .command(_, let cmd):
             openInITerm(cmd)
+        case .prompt(let p):
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(p.content, forType: .string)
+            promptStore?.recordUse(id: p.id)
+        case .historyCommand(let h):
+            openInITerm(h.command)
         }
     }
 }
@@ -120,6 +133,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     // These are set by the App struct via onAppear or similar
     var store: ProjectStore?
     var fleet: FleetStore?
+    var promptStore: PromptStore?
+    var historyStore: HistoryStore?
+    var frecency: FrecencyTracker?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Don't hide from Dock yet — keep visible during development
@@ -147,6 +163,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             // Create the launcher view with current stores
             let store = self.store ?? ProjectStore()
             let fleet = self.fleet ?? FleetStore()
+            let promptStore = self.promptStore ?? PromptStore()
+            let historyStore = self.historyStore ?? HistoryStore()
             NSLog("[Deskfloor] Showing launcher with \(store.projects.count) projects, \(fleet.hosts.count) hosts")
 
             if !fleet.isReachable && fleet.hosts.isEmpty {
@@ -156,11 +174,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let launcherView = LauncherPanelView(
                 store: store,
                 fleet: fleet,
+                promptStore: promptStore,
+                historyStore: historyStore,
                 onDismiss: { [weak self] in
                     self?.panelController.hide()
                 },
                 onAction: { [weak self] item in
-                    DeskfloorApp.executeAction(item)
+                    DeskfloorApp.executeAction(item, promptStore: self?.promptStore, frecency: self?.frecency)
                     self?.panelController.hide()
                 }
             )

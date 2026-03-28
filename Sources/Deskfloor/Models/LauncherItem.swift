@@ -7,6 +7,8 @@ enum LauncherItem: Identifiable {
     case session(FleetStore.FleetHost, FleetStore.TmuxSession)
     case project(Project)
     case command(String, String) // label, command
+    case prompt(PromptStore.Prompt)
+    case historyCommand(HistoryStore.HistoryCommand)
 
     var id: String {
         switch self {
@@ -14,6 +16,8 @@ enum LauncherItem: Identifiable {
         case .session(let h, let s): return "tmux:\(h.name):\(s.name)"
         case .project(let p): return "project:\(p.id)"
         case .command(let label, _): return "cmd:\(label)"
+        case .prompt(let p): return "prompt:\(p.id.uuidString)"
+        case .historyCommand(let h): return "history:\(h.id)"
         }
     }
 
@@ -23,6 +27,9 @@ enum LauncherItem: Identifiable {
         case .session(let h, let s): return "\(h.sigil) \(s.name)"
         case .project(let p): return p.name
         case .command(let label, _): return label
+        case .prompt(let p): return p.title
+        case .historyCommand(let h):
+            return h.command.count > 60 ? String(h.command.prefix(60)) + "..." : h.command
         }
     }
 
@@ -36,6 +43,12 @@ enum LauncherItem: Identifiable {
             return p.description
         case .command(_, let cmd):
             return cmd
+        case .prompt(let p):
+            let truncated = p.content.prefix(80)
+            return truncated.count < p.content.count ? truncated + "..." : String(truncated)
+        case .historyCommand(let h):
+            let timeAgo = Self.relativeTime(h.lastUsed)
+            return "used \(h.count)x, \(timeAgo)"
         }
     }
 
@@ -45,6 +58,8 @@ enum LauncherItem: Identifiable {
         case .session: return "Sessions"
         case .project: return "Projects"
         case .command: return "Commands"
+        case .prompt: return "Prompts"
+        case .historyCommand: return "History"
         }
     }
 
@@ -54,6 +69,21 @@ enum LauncherItem: Identifiable {
         case .session(let h, let s): return [h.name, s.name, "tmux"]
         case .project(let p): return [p.name] + p.tags
         case .command(let label, _): return label.split(separator: " ").map(String.init)
+        case .prompt(let p): return p.tags
+        case .historyCommand(let h):
+            return h.command.split(separator: " ").map(String.init)
+        }
+    }
+
+    private static func relativeTime(_ date: Date?) -> String {
+        guard let date else { return "unknown" }
+        let seconds = -date.timeIntervalSinceNow
+        switch seconds {
+        case ..<60: return "just now"
+        case ..<3600: return "\(Int(seconds / 60))m ago"
+        case ..<86400: return "\(Int(seconds / 3600))h ago"
+        case ..<604800: return "\(Int(seconds / 86400))d ago"
+        default: return "\(Int(seconds / 604800))w ago"
         }
     }
 }

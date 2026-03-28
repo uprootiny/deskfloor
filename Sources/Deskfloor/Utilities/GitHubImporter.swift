@@ -119,7 +119,7 @@ enum GitHubImporter {
     private static func guessPerspective(name: String, language: String?, description: String?) -> Perspective {
         let n = name.lowercased()
         let d = (description ?? "").lowercased()
-        let lang = (language ?? "").lowercased()
+        let _ = (language ?? "").lowercased()
 
         // Infrastructure: servers, deploy, config, nix, docker
         if n.contains("infra") || n.contains("nix") || n.contains("docker") || n.contains("deploy")

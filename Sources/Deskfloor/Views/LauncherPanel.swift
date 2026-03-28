@@ -8,6 +8,8 @@ import SwiftUI
 struct LauncherPanelView: View {
     @State var store: ProjectStore
     @State var fleet: FleetStore
+    @State var promptStore: PromptStore
+    @State var historyStore: HistoryStore
     @State private var query = ""
     @State private var selectedIndex = 0
     @State private var toast: ToastMessage?
@@ -33,12 +35,27 @@ struct LauncherPanelView: View {
                 items.append(.session(host, session))
             }
         }
+
+        // Prompts sorted by useCount desc, limit 15
+        let topPrompts = promptStore.prompts
+            .sorted { $0.useCount > $1.useCount }
+            .prefix(15)
+        for prompt in topPrompts {
+            items.append(.prompt(prompt))
+        }
+
         let active = store.projects
             .filter { $0.status == .active }
             .sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
         for project in active.prefix(30) {
             items.append(.project(project))
         }
+
+        // History commands top 20 by frecency
+        for cmd in historyStore.commands.prefix(20) {
+            items.append(.historyCommand(cmd))
+        }
+
         return items
     }
 
@@ -46,7 +63,7 @@ struct LauncherPanelView: View {
     private var flatResults: [LauncherItem] { results }
     private var grouped: [(String, [LauncherItem])] {
         let dict = Dictionary(grouping: results, by: \.category)
-        return ["Hosts", "Sessions", "Projects", "Commands"].compactMap { cat in
+        return ["Hosts", "Sessions", "Prompts", "Projects", "History", "Commands"].compactMap { cat in
             guard let items = dict[cat], !items.isEmpty else { return nil }
             return (cat, items)
         }
@@ -310,6 +327,8 @@ struct LauncherPanelView: View {
         case .session: return "attach"
         case .project: return "open"
         case .command: return "run"
+        case .prompt: return "copy"
+        case .historyCommand: return "run"
         }
     }
 
@@ -367,6 +386,10 @@ struct LauncherPanelView: View {
             return "Open \(p.repo ?? p.name) on GitHub"
         case .command(let label, _):
             return "Run: \(label)"
+        case .prompt(let p):
+            return "Copy prompt: \(p.title)"
+        case .historyCommand(let h):
+            return "Run in iTerm: \(h.command)"
         }
     }
 
@@ -388,6 +411,10 @@ struct LauncherPanelView: View {
         case .session(let h, let s): msg = "Attaching \(h.name):\(s.name)..."
         case .project(let p): msg = "Opening \(p.name)..."
         case .command(let label, _): msg = "Running \(label)..."
+        case .prompt(let p): msg = "Copied: \(p.title)"
+        case .historyCommand(let h):
+            let short = h.command.count > 30 ? String(h.command.prefix(30)) + "..." : h.command
+            msg = "Running \(short)..."
         }
         withAnimation(.easeIn(duration: 0.15)) {
             toast = ToastMessage(text: msg, icon: "checkmark.circle.fill", color: .green)
@@ -500,6 +527,8 @@ struct NielsenRow: View {
         case .session: "ATTACH"
         case .project: "OPEN"
         case .command: "RUN"
+        case .prompt: "COPY"
+        case .historyCommand: "RUN"
         }
     }
 
@@ -509,6 +538,8 @@ struct NielsenRow: View {
         case .session: "terminal"
         case .project: "folder.fill"
         case .command: "command"
+        case .prompt: "text.quote"
+        case .historyCommand: "clock.arrow.circlepath"
         }
     }
 
@@ -518,6 +549,8 @@ struct NielsenRow: View {
         case .session(_, let s): s.attached ? .blue : .gray
         case .project(let p): p.perspective.color
         case .command: .orange
+        case .prompt: .purple
+        case .historyCommand: .cyan
         }
     }
 }
