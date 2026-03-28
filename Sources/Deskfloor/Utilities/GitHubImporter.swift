@@ -10,6 +10,7 @@ struct GitHubRepo: Decodable {
     let isArchived: Bool
     let isFork: Bool
     let primaryLanguage: GitHubLanguage?
+    let stargazerCount: Int?
 
     struct GitHubLanguage: Decodable {
         let name: String
@@ -34,13 +35,13 @@ enum GitHubImporter {
             process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
             var args = ["gh", "repo", "list"]
             if let owner = owner { args.append(owner) }
-            args += ["--json", "name,nameWithOwner,description,createdAt,updatedAt,pushedAt,isArchived,isFork,primaryLanguage", "--limit", "200"]
+            args += ["--json", "name,nameWithOwner,description,createdAt,updatedAt,pushedAt,isArchived,isFork,primaryLanguage,stargazerCount", "--limit", "200"]
             process.arguments = args
         } else {
             process.executableURL = URL(fileURLWithPath: ghPath)
             var args = ["repo", "list"]
             if let owner = owner { args.append(owner) }
-            args += ["--json", "name,nameWithOwner,description,createdAt,updatedAt,pushedAt,isArchived,isFork,primaryLanguage", "--limit", "200"]
+            args += ["--json", "name,nameWithOwner,description,createdAt,updatedAt,pushedAt,isArchived,isFork,primaryLanguage,stargazerCount", "--limit", "200"]
             process.arguments = args
         }
 
@@ -76,7 +77,8 @@ enum GitHubImporter {
             return isoFormatter.date(from: s) ?? isoFallback.date(from: s)
         }
 
-        return repos.map { repo in
+        // First pass: build all projects
+        var projects = repos.map { repo -> Project in
             let pushedDate = parseDate(repo.pushedAt)
             let daysSincePush = pushedDate.map { -$0.timeIntervalSinceNow / 86400 } ?? 999
             let status: Status
@@ -106,7 +108,7 @@ enum GitHubImporter {
                 tags: [repo.primaryLanguage?.name].compactMap { $0 },
                 startDate: parseDate(repo.createdAt),
                 lastActivity: parseDate(repo.pushedAt) ?? parseDate(repo.updatedAt),
-                commitCount: 0,
+                commitCount: repo.stargazerCount ?? 0,
                 encumbrances: encumbrances,
                 connections: [],
                 progressNotes: [],
@@ -114,6 +116,34 @@ enum GitHubImporter {
                 handoffNotes: ""
             )
         }
+
+        // Second pass: auto-detect connections
+        // Projects sharing the same perspective + language are likely related
+        let nameSet = Set(projects.map(\.name))
+        for i in projects.indices {
+            var connections: [String] = []
+            let p = projects[i]
+            for j in projects.indices where i != j {
+                let q = projects[j]
+                // Same perspective + same language = likely connected
+                if p.perspective == q.perspective,
+                   let pLang = p.tags.first, let qLang = q.tags.first,
+                   pLang == qLang, !pLang.isEmpty {
+                    connections.append(q.name)
+                }
+                // Name substring match (e.g., "pythia-rust-engine" ↔ "pythia-elixir-interface")
+                let prefix = String(p.name.prefix(6))
+                if prefix.count >= 5, q.name.hasPrefix(prefix), p.name != q.name {
+                    if !connections.contains(q.name) {
+                        connections.append(q.name)
+                    }
+                }
+            }
+            // Limit connections to avoid noise
+            projects[i].connections = Array(connections.prefix(8))
+        }
+
+        return projects
     }
 
     private static func guessPerspective(name: String, language: String?, description: String?) -> Perspective {

@@ -92,8 +92,14 @@ enum LauncherItem: Identifiable {
 struct LauncherSearch {
     private let analyzer = TextAnalyzer()
 
-    func search(query: String, items: [LauncherItem], limit: Int = 20) -> [LauncherItem] {
+    func search(query: String, items: [LauncherItem], frecency: FrecencyTracker? = nil, limit: Int = 20) -> [LauncherItem] {
         guard !query.isEmpty else {
+            // Empty query: sort by frecency if available
+            if let frecency {
+                return items
+                    .sorted { frecency.score(itemID: $0.id) > frecency.score(itemID: $1.id) }
+                    .prefix(limit).map { $0 }
+            }
             return Array(items.prefix(limit))
         }
 
@@ -124,6 +130,11 @@ struct LauncherSearch {
                 // Subtitle match
                 if item.subtitle.lowercased().contains(queryLower) {
                     score += 1.0
+                }
+
+                // Frecency tiebreaker
+                if let frecency {
+                    score += frecency.score(itemID: item.id) * 0.01
                 }
 
                 return (item, score)
