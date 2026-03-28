@@ -5,6 +5,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     case perspective
     case timeline
     case graph
+    case skein
 
     var id: String { rawValue }
 
@@ -14,6 +15,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .perspective: "Perspective"
         case .timeline: "Timeline"
         case .graph: "Graph"
+        case .skein: "Skein"
         }
     }
 
@@ -23,6 +25,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .perspective: "square.grid.3x3"
         case .timeline: "chart.bar.xaxis"
         case .graph: "point.3.connected.trianglepath.dotted"
+        case .skein: "line.3.horizontal"
         }
     }
 }
@@ -30,6 +33,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @State var store: ProjectStore
     @State var fleet: FleetStore = FleetStore()
+    @State var skein: SkeinStore = SkeinStore()
     @State private var viewMode: ViewMode = .board
     @State private var searchText = ""
     @State private var selectedPerspectives: Set<Perspective> = []
@@ -297,6 +301,8 @@ struct ContentView: View {
                 selectedProject: $selectedProject,
                 showDetail: $showDetail
             )
+        case .skein:
+            SkeinView(skein: skein, store: store)
         }
     }
 
