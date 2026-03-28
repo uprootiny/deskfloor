@@ -6,6 +6,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     case timeline
     case graph
     case skein
+    case paste
 
     var id: String { rawValue }
 
@@ -16,6 +17,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .timeline: "Timeline"
         case .graph: "Graph"
         case .skein: "Skein"
+        case .paste: "Paste"
         }
     }
 
@@ -26,6 +28,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .timeline: "chart.bar.xaxis"
         case .graph: "point.3.connected.trianglepath.dotted"
         case .skein: "line.3.horizontal"
+        case .paste: "doc.on.clipboard"
         }
     }
 }
@@ -142,6 +145,8 @@ struct ContentView: View {
                     .keyboardShortcut("4", modifiers: .command)
                 Button("") { viewMode = .skein }
                     .keyboardShortcut("5", modifiers: .command)
+                Button("") { viewMode = .paste }
+                    .keyboardShortcut("6", modifiers: .command)
                 Button("") {
                     editingProject = Project.blank()
                     showNewProject = true
@@ -318,6 +323,10 @@ struct ContentView: View {
 
             if viewMode == .skein {
                 SkeinView(skein: skein, store: store)
+            }
+
+            if viewMode == .paste {
+                PasteAnalysisView()
             }
         }
     }
