@@ -88,10 +88,13 @@ struct DeskfloorApp: App {
             .replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "\"", with: "\\\"")
 
+        // Source profile to get nix, claude, gh, etc. on PATH
+        let fullCmd = "source ~/.zshrc 2>/dev/null; export PATH=\\\"$HOME/.nix-profile/bin:$HOME/.local/bin:$PATH\\\"; \(escaped)"
+
         let script = """
         tell application "iTerm"
             activate
-            create window with default profile command "/bin/zsh -l -c \\"\(escaped); exec /bin/zsh\\""
+            create window with default profile command "/bin/zsh -l -c \\"\(fullCmd); exec /bin/zsh\\""
         end tell
         """
 
@@ -194,4 +197,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension Notification.Name {
     static let importFromGitHub = Notification.Name("importFromGitHub")
+    static let projectStatusChange = Notification.Name("projectStatusChange")
 }

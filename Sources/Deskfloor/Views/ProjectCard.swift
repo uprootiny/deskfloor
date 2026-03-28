@@ -97,6 +97,56 @@ struct ProjectCard: View {
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
+        .contextMenu {
+            Button(action: {
+                let cmd: String
+                if let path = project.localPath {
+                    cmd = "cd \(path) && claude"
+                } else if let repo = project.repo {
+                    cmd = "cd ~/Nissan && gh repo clone \(repo) 2>/dev/null; cd ~/Nissan/\(project.name) && claude"
+                } else {
+                    cmd = "claude"
+                }
+                DeskfloorApp.openInITerm(cmd)
+            }) {
+                Label("Run Agent Session", systemImage: "play.fill")
+            }
+
+            Button(action: {
+                if let path = project.localPath {
+                    DeskfloorApp.openInITerm("cd \(path)")
+                } else {
+                    DeskfloorApp.sshJump(host: "hyle")
+                }
+            }) {
+                Label("Open in iTerm", systemImage: "terminal")
+            }
+
+            if let repo = project.repo {
+                Button(action: {
+                    if let url = URL(string: "https://github.com/\(repo)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }) {
+                    Label("Open on GitHub", systemImage: "link")
+                }
+            }
+
+            Divider()
+
+            Menu("Set Status") {
+                ForEach(Status.allCases) { status in
+                    Button(status.label) {
+                        // Status change needs store access — post notification
+                        NotificationCenter.default.post(
+                            name: .projectStatusChange,
+                            object: nil,
+                            userInfo: ["id": project.id, "status": status]
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private var perspectiveBadge: some View {
