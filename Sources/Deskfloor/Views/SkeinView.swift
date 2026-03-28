@@ -18,9 +18,16 @@ struct SkeinView: View {
             if let status = filterStatus, thread.status != status { return false }
             if !filterText.isEmpty {
                 let q = filterText.lowercased()
-                return thread.title.lowercased().contains(q)
-                    || thread.topics.contains { $0.lowercased().contains(q) }
-                    || thread.tags.contains { $0.lowercased().contains(q) }
+                // Search thread metadata
+                if thread.title.lowercased().contains(q) { return true }
+                if thread.topics.contains(where: { $0.lowercased().contains(q) }) { return true }
+                if thread.tags.contains(where: { $0.lowercased().contains(q) }) { return true }
+                // Search turn content (the important part)
+                if thread.turns.contains(where: {
+                    $0.userContent.lowercased().contains(q)
+                    || ($0.assistantContent?.lowercased().contains(q) ?? false)
+                }) { return true }
+                return false
             }
             return true
         }.sorted { $0.updatedAt > $1.updatedAt }
@@ -50,7 +57,57 @@ struct SkeinView: View {
                         .frame(minWidth: 300)
                 }
             }
+
+            // Status footer
+            statusFooter
         }
+        .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+        .task {
+            // Auto-import Claude Code conversations on first appearance
+            if skein.threads.isEmpty {
+                importClaudeCode()
+            }
+        }
+    }
+
+    // MARK: - Status Footer
+
+    private var statusFooter: some View {
+        let byStatus = Dictionary(grouping: skein.threads, by: \.status)
+        return HStack(spacing: 12) {
+            ForEach(SessionStatus.allCases) { status in
+                let count = byStatus[status]?.count ?? 0
+                if count > 0 {
+                    Button(action: {
+                        // Toggle filter: click to filter by this status, click again to clear
+                        if filterStatus == status {
+                            filterStatus = nil
+                        } else {
+                            filterStatus = status
+                        }
+                    }) {
+                        HStack(spacing: 3) {
+                            Circle()
+                                .fill(status.color)
+                                .frame(width: 5, height: 5)
+                            Text("\(count) \(status.label.lowercased())")
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(filterStatus == status ? .white.opacity(0.7) : .white.opacity(0.25))
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            Spacer()
+
+            let stats = skein.stats
+            Text("\(stats.turns) turns · \(stats.artifacts) artifacts · \(stats.excerpts) excerpts")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.2))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 5)
         .background(Color(red: 0.06, green: 0.06, blue: 0.08))
     }
 
