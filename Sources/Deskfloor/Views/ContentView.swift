@@ -7,6 +7,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     case graph
     case skein
     case paste
+    case attention
 
     var id: String { rawValue }
 
@@ -17,7 +18,8 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .timeline: "Timeline"
         case .graph: "Graph"
         case .skein: "Skein"
-        case .paste: "Paste"
+        case .paste: "Loom"
+        case .attention: "Attention"
         }
     }
 
@@ -29,6 +31,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .graph: "point.3.connected.trianglepath.dotted"
         case .skein: "line.3.horizontal"
         case .paste: "doc.on.clipboard"
+        case .attention: "exclamationmark.triangle"
         }
     }
 }
@@ -37,6 +40,7 @@ struct ContentView: View {
     @State var store: ProjectStore
     @State var fleet: FleetStore = FleetStore()
     @State var skein: SkeinStore = SkeinStore()
+    @State var dataBus: DataBus = DataBus()
     @State private var viewMode: ViewMode = .board
     @State private var searchText = ""
     @State private var selectedPerspectives: Set<Perspective> = []
@@ -154,6 +158,8 @@ struct ContentView: View {
                     .keyboardShortcut("5", modifiers: .command)
                 Button("") { viewMode = .paste }
                     .keyboardShortcut("6", modifiers: .command)
+                Button("") { viewMode = .attention }
+                    .keyboardShortcut("7", modifiers: .command)
                 Button("") {
                     editingProject = Project.blank()
                     showNewProject = true
@@ -334,6 +340,10 @@ struct ContentView: View {
 
             if viewMode == .paste {
                 PasteAnalysisView()
+            }
+
+            if viewMode == .attention {
+                AttentionView(dataBus: dataBus)
             }
         }
     }
