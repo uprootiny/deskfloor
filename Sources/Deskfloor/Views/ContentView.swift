@@ -133,6 +133,13 @@ struct ContentView: View {
         } message: {
             Text(importError ?? "Unknown error")
         }
+        .onReceive(NotificationCenter.default.publisher(for: .projectStatusChange)) { notification in
+            if let info = notification.userInfo,
+               let id = info["id"] as? UUID,
+               let status = info["status"] as? Status {
+                store.moveProject(id: id, toStatus: status)
+            }
+        }
         .background(
             Group {
                 Button("") { viewMode = .board }
