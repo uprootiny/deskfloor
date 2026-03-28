@@ -3,7 +3,7 @@ import SwiftUI
 struct GraphView: View {
     let filteredProjects: [Project]
     @Binding var selectedProject: Project?
-    @Binding var showDetail: Bool
+    // showDetail removed
 
     @State private var positions: [UUID: CGPoint] = [:]
     @State private var draggedNode: UUID?
@@ -46,7 +46,7 @@ struct GraphView: View {
                         )
                         .onTapGesture {
                             selectedProject = project
-                            showDetail = true
+                            // sheet shows automatically
                         }
                 }
             }

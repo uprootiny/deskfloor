@@ -4,7 +4,7 @@ struct BoardView: View {
     @Bindable var store: ProjectStore
     let filteredProjects: [Project]
     @Binding var selectedProject: Project?
-    @Binding var showDetail: Bool
+    @Binding var selectedProjects: Set<UUID>
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -40,9 +40,24 @@ struct BoardView: View {
             ScrollView(.vertical, showsIndicators: false) {
                 LazyVStack(spacing: 6) {
                     ForEach(projectsFor(status)) { project in
-                        ProjectCard(project: project) {
+                        ProjectCard(
+                            project: project,
+                            isSelected: selectedProjects.contains(project.id)
+                        ) {
                             selectedProject = project
-                            showDetail = true
+                        }
+                        .onTapGesture {
+                            if NSEvent.modifierFlags.contains(.command) {
+                                // Cmd+Click: toggle multi-select
+                                if selectedProjects.contains(project.id) {
+                                    selectedProjects.remove(project.id)
+                                } else {
+                                    selectedProjects.insert(project.id)
+                                }
+                            } else {
+                                // Normal click: open detail
+                                selectedProject = project
+                            }
                         }
                         .draggable(project.id.uuidString)
                     }

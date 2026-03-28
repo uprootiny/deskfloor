@@ -42,7 +42,8 @@ struct ContentView: View {
     @State private var handoffOnly = false
     @State private var encumberedOnly = false
     @State private var selectedProject: Project?
-    @State private var showDetail = false
+    @State private var selectedProjects: Set<UUID> = []  // multi-select
+    @State private var showDispatch = false
     @State private var showNewProject = false
     @State private var editingProject = Project.blank()
     @State private var importInProgress = false
@@ -78,37 +79,36 @@ struct ContentView: View {
                 Divider().background(Color.white.opacity(0.1))
                 mainContent
                 Divider().background(Color.white.opacity(0.1))
+                // Selection bar (appears when projects are multi-selected)
+                if !selectedProjects.isEmpty {
+                    selectionBar
+                }
                 fleetBar
             }
             .onAppear { fleet.startPolling() }
         }
         .navigationSplitViewStyle(.balanced)
         .preferredColorScheme(.dark)
-        .sheet(isPresented: $showDetail) {
-            if let project = selectedProject {
-                let binding = Binding<Project>(
+        .sheet(isPresented: $showDispatch) { dispatchPanel }
+        .sheet(item: $selectedProject) { project in
+            ProjectDetailSheet(
+                project: Binding(
                     get: { selectedProject ?? project },
                     set: { selectedProject = $0 }
-                )
-                ProjectDetailSheet(
-                    project: binding,
-                    isNew: false,
-                    onSave: { updated in
-                        store.updateProject(updated)
-                        showDetail = false
-                        selectedProject = nil
-                    },
-                    onDelete: {
-                        store.deleteProject(project)
-                        showDetail = false
-                        selectedProject = nil
-                    },
-                    onCancel: {
-                        showDetail = false
-                        selectedProject = nil
-                    }
-                )
-            }
+                ),
+                isNew: false,
+                onSave: { updated in
+                    store.updateProject(updated)
+                    selectedProject = nil
+                },
+                onDelete: {
+                    store.deleteProject(project)
+                    selectedProject = nil
+                },
+                onCancel: {
+                    selectedProject = nil
+                }
+            )
         }
         .sheet(isPresented: $showNewProject) {
             ProjectDetailSheet(
@@ -283,35 +283,42 @@ struct ContentView: View {
 
     @ViewBuilder
     private var mainContent: some View {
-        switch viewMode {
-        case .board:
+        // ZStack keeps all views alive — switching is instant (no teardown/rebuild)
+        ZStack {
             BoardView(
                 store: store,
                 filteredProjects: filteredProjects,
                 selectedProject: $selectedProject,
-                showDetail: $showDetail
+                selectedProjects: $selectedProjects
             )
-        case .perspective:
-            PerspectiveView(
-                store: store,
-                filteredProjects: filteredProjects,
-                selectedProject: $selectedProject,
-                showDetail: $showDetail
-            )
-        case .timeline:
-            ProjectTimelineView(
-                filteredProjects: filteredProjects,
-                selectedProject: $selectedProject,
-                showDetail: $showDetail
-            )
-        case .graph:
-            GraphView(
-                filteredProjects: filteredProjects,
-                selectedProject: $selectedProject,
-                showDetail: $showDetail
-            )
-        case .skein:
-            SkeinView(skein: skein, store: store)
+            .opacity(viewMode == .board ? 1 : 0)
+            .allowsHitTesting(viewMode == .board)
+
+            if viewMode == .perspective {
+                PerspectiveView(
+                    store: store,
+                    filteredProjects: filteredProjects,
+                    selectedProject: $selectedProject
+                )
+            }
+
+            if viewMode == .timeline {
+                ProjectTimelineView(
+                    filteredProjects: filteredProjects,
+                    selectedProject: $selectedProject
+                )
+            }
+
+            if viewMode == .graph {
+                GraphView(
+                    filteredProjects: filteredProjects,
+                    selectedProject: $selectedProject
+                )
+            }
+
+            if viewMode == .skein {
+                SkeinView(skein: skein, store: store)
+            }
         }
     }
 
@@ -363,6 +370,65 @@ struct ContentView: View {
         .padding(.horizontal, 16)
         .padding(.vertical, 5)
         .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+    }
+
+    // MARK: - Selection Bar (multi-select actions)
+
+    private var selectionBar: some View {
+        let selected = store.projects.filter { selectedProjects.contains($0.id) }
+        return HStack(spacing: 12) {
+            Text("\(selected.count) selected")
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(.white)
+
+            Button("Dispatch to Claude Code") {
+                showDispatch = true
+            }
+            .buttonStyle(.borderedProminent)
+            .tint(.blue.opacity(0.8))
+            .controlSize(.small)
+
+            Menu("Set Status") {
+                ForEach(Status.allCases) { status in
+                    Button(status.label) {
+                        for id in selectedProjects {
+                            store.moveProject(id: id, toStatus: status)
+                        }
+                    }
+                }
+            }
+            .controlSize(.small)
+
+            Button("Open All on GitHub") {
+                for project in selected {
+                    if let repo = project.repo, let url = URL(string: "https://github.com/\(repo)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
+            .buttonStyle(.plain)
+            .font(.system(size: 11))
+            .foregroundStyle(.white.opacity(0.5))
+
+            Spacer()
+
+            Button("Clear") { selectedProjects.removeAll() }
+                .buttonStyle(.plain)
+                .font(.system(size: 11))
+                .foregroundStyle(.white.opacity(0.4))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 6)
+        .background(Color.blue.opacity(0.1))
+    }
+
+    // MARK: - Dispatch Panel
+
+    private var dispatchPanel: some View {
+        DispatchView(
+            projects: store.projects.filter { selectedProjects.contains($0.id) },
+            onDismiss: { showDispatch = false }
+        )
     }
 
     private func importFromGitHub() {

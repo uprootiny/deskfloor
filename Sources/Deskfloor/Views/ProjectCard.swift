@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ProjectCard: View {
     let project: Project
+    var isSelected: Bool = false
     var onTap: () -> Void = {}
 
     private let monoFont = Font.system(size: 11, design: .monospaced)
@@ -88,11 +89,11 @@ struct ProjectCard: View {
             }
         }
         .padding(8)
-        .background(Color.white.opacity(0.06))
+        .background(isSelected ? Color.blue.opacity(0.12) : Color.white.opacity(0.06))
         .clipShape(RoundedRectangle(cornerRadius: 6))
         .overlay(
             RoundedRectangle(cornerRadius: 6)
-                .stroke(Color.white.opacity(0.08), lineWidth: 1)
+                .stroke(isSelected ? Color.blue.opacity(0.4) : Color.white.opacity(0.08), lineWidth: isSelected ? 1.5 : 1)
         )
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)

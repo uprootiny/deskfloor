@@ -3,7 +3,7 @@ import SwiftUI
 struct ProjectTimelineView: View {
     let filteredProjects: [Project]
     @Binding var selectedProject: Project?
-    @Binding var showDetail: Bool
+    // showDetail removed
 
     private let rowHeight: CGFloat = 32
     private let labelWidth: CGFloat = 160
@@ -113,7 +113,7 @@ struct ProjectTimelineView: View {
         .contentShape(Rectangle())
         .onTapGesture {
             selectedProject = project
-            showDetail = true
+            // sheet shows automatically
         }
     }
 

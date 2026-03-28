@@ -4,7 +4,7 @@ struct PerspectiveView: View {
     @Bindable var store: ProjectStore
     let filteredProjects: [Project]
     @Binding var selectedProject: Project?
-    @Binding var showDetail: Bool
+    // showDetail removed
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
@@ -41,7 +41,7 @@ struct PerspectiveView: View {
                     ForEach(projectsFor(perspective)) { project in
                         ProjectCard(project: project) {
                             selectedProject = project
-                            showDetail = true
+                            // sheet shows automatically
                         }
                         .draggable(project.id.uuidString)
                     }
