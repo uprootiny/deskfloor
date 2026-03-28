@@ -140,6 +140,8 @@ struct ContentView: View {
                     .keyboardShortcut("3", modifiers: .command)
                 Button("") { viewMode = .graph }
                     .keyboardShortcut("4", modifiers: .command)
+                Button("") { viewMode = .skein }
+                    .keyboardShortcut("5", modifiers: .command)
                 Button("") {
                     editingProject = Project.blank()
                     showNewProject = true
