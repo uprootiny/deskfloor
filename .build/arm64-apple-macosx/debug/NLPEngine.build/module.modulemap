@@ -1,4 +1,0 @@
-module NLPEngine {
-    header "/Users/uprootiny/Nissan/deskfloor/.build/arm64-apple-macosx/debug/NLPEngine.build/NLPEngine-Swift.h"
-    requires objc
-}
