@@ -1,13 +1,14 @@
 import SwiftUI
 
-// MARK: - Launcher Panel (v2: dense, keyboard-driven)
+// MARK: - Launcher Panel (Apple HIG variant)
+// Follows Human Interface Guidelines: system fonts, standard controls,
+// generous spacing, sidebar material, accent color selection, accessibility.
 
 struct LauncherPanelView: View {
     @State var store: ProjectStore
     @State var fleet: FleetStore
     @State private var query = ""
-    @State private var selectedIndex = 0
-    @State private var toast: String?
+    @State private var selectedID: String?
     @FocusState private var searchFocused: Bool
 
     var onDismiss: () -> Void
@@ -17,39 +18,28 @@ struct LauncherPanelView: View {
 
     private var allItems: [LauncherItem] {
         var items: [LauncherItem] = []
-
-        // Fleet hosts — always first
         for host in fleet.hosts {
             items.append(.host(host))
             for session in host.sessions {
                 items.append(.session(host, session))
             }
         }
-
-        // Active projects, most recent first
         let active = store.projects
             .filter { $0.status == .active }
             .sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
         for project in active.prefix(30) {
             items.append(.project(project))
         }
-
         return items
     }
 
     private var results: [LauncherItem] {
-        let r = searcher.search(query: query, items: allItems)
-        return r
-    }
-
-    private var flatResults: [LauncherItem] {
-        results
+        searcher.search(query: query, items: allItems)
     }
 
     private var grouped: [(String, [LauncherItem])] {
         let dict = Dictionary(grouping: results, by: \.category)
-        let order = ["Hosts", "Sessions", "Projects", "Commands"]
-        return order.compactMap { cat in
+        return ["Hosts", "Sessions", "Projects", "Commands"].compactMap { cat in
             guard let items = dict[cat], !items.isEmpty else { return nil }
             return (cat, items)
         }
@@ -57,354 +47,194 @@ struct LauncherPanelView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            searchBar
-            Divider().opacity(0.3)
-            resultsList
-            if let toast {
-                toastBar(toast)
-            } else {
-                footerBar
-            }
-        }
-        .frame(width: 640)
-        .background(.ultraThickMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
-        .onAppear {
-            searchFocused = true
-            selectedIndex = 0
-        }
-        .onChange(of: query) { _, _ in
-            selectedIndex = 0
-        }
-        .onKeyPress(.escape) {
-            onDismiss()
-            return .handled
-        }
-        .onKeyPress(.downArrow) {
-            selectedIndex = min(selectedIndex + 1, flatResults.count - 1)
-            return .handled
-        }
-        .onKeyPress(.upArrow) {
-            selectedIndex = max(selectedIndex - 1, 0)
-            return .handled
-        }
-        .onKeyPress(.tab) {
-            jumpToNextCategory()
-            return .handled
-        }
-    }
-
-    // MARK: - Search Bar
-
-    private var searchBar: some View {
-        HStack(spacing: 10) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 18, weight: .light))
-                .foregroundStyle(.white.opacity(0.3))
-
-            TextField("", text: $query, prompt: Text("Jump to...").foregroundStyle(.white.opacity(0.25)))
-                .textFieldStyle(.plain)
-                .font(.system(size: 20, weight: .light, design: .default))
-                .foregroundStyle(.white)
-                .focused($searchFocused)
-                .onSubmit { executeSelected() }
-
-            if !query.isEmpty {
-                Button(action: { query = "" }) {
-                    Image(systemName: "xmark.circle.fill")
-                        .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.2))
+            // MARK: Search — standard macOS search field appearance
+            HStack {
+                Image(systemName: "magnifyingglass")
+                    .foregroundStyle(.secondary)
+                TextField("Search", text: $query)
+                    .textFieldStyle(.plain)
+                    .font(.title3)
+                    .focused($searchFocused)
+                    .onSubmit { executeSelected() }
+                    .accessibilityLabel("Search hosts, sessions, and projects")
+                if !query.isEmpty {
+                    Button(action: { query = "" }) {
+                        Image(systemName: "xmark.circle.fill")
+                            .foregroundStyle(.tertiary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Clear search")
                 }
-                .buttonStyle(.plain)
             }
+            .padding(12)
+            .background(.bar)
 
-            // Item count badge
-            if !query.isEmpty {
-                Text("\(flatResults.count)")
-                    .font(.system(size: 11, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.3))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.white.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
-    }
+            Divider()
 
-    // MARK: - Results List
-
-    private var resultsList: some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    if flatResults.isEmpty && !query.isEmpty {
-                        emptyState
-                    } else {
-                        ForEach(Array(grouped.enumerated()), id: \.0) { _, group in
-                            let (category, items) = group
-                            categoryHeader(category, count: items.count)
+            // MARK: Results — source list style
+            if results.isEmpty && !query.isEmpty {
+                ContentUnavailableView.search(text: query)
+                    .frame(height: 200)
+            } else {
+                List(selection: $selectedID) {
+                    ForEach(grouped, id: \.0) { category, items in
+                        Section(category) {
                             ForEach(items) { item in
-                                let idx = flatResults.firstIndex(where: { $0.id == item.id }) ?? 0
-                                LauncherRow(
-                                    item: item,
-                                    isSelected: idx == selectedIndex
-                                )
-                                .id(item.id)
-                                .onTapGesture {
-                                    selectedIndex = idx
-                                    executeSelected()
-                                }
+                                HIGLauncherRow(item: item)
+                                    .tag(item.id)
+                                    .listRowSeparator(.hidden)
                             }
                         }
                     }
                 }
-                .padding(.vertical, 4)
-            }
-            .frame(minHeight: 100, maxHeight: 420)
-            .onChange(of: selectedIndex) { _, newIndex in
-                if let item = flatResults[safe: newIndex] {
-                    withAnimation(.easeOut(duration: 0.1)) {
-                        proxy.scrollTo(item.id, anchor: .center)
-                    }
+                .listStyle(.sidebar)
+                .frame(minHeight: 200, maxHeight: 420)
+                .onChange(of: query) { _, _ in
+                    selectedID = results.first?.id
+                }
+                .onKeyPress(.escape) {
+                    onDismiss()
+                    return .handled
+                }
+                .onKeyPress(.return) {
+                    executeSelected()
+                    return .handled
                 }
             }
-        }
-    }
 
-    private func categoryHeader(_ title: String, count: Int) -> some View {
-        HStack(spacing: 6) {
-            Text(title.uppercased())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.25))
-            Rectangle()
-                .fill(.white.opacity(0.06))
-                .frame(height: 1)
-            Text("\(count)")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.15))
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-    }
+            Divider()
 
-    private var emptyState: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "magnifyingglass")
-                .font(.system(size: 24))
-                .foregroundStyle(.white.opacity(0.15))
-            Text("No results for \"\(query)\"")
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.3))
-        }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 40)
-    }
-
-    // MARK: - Footer
-
-    private var footerBar: some View {
-        HStack(spacing: 0) {
-            footerKey("Enter", label: "open")
-            footerKey("Tab", label: "next group")
-            footerKey("Esc", label: "close")
-            Spacer()
-            if fleet.isReachable {
-                HStack(spacing: 4) {
-                    Circle().fill(.green).frame(width: 5, height: 5)
-                    Text("\(fleet.hosts.count) hosts")
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.25))
+            // MARK: Footer — standard toolbar appearance
+            HStack {
+                Label("Return to open", systemImage: "return")
+                    .font(.caption2)
+                    .foregroundStyle(.tertiary)
+                Spacer()
+                if fleet.isReachable {
+                    Label("\(fleet.hosts.count) hosts online", systemImage: "circle.fill")
+                        .font(.caption2)
+                        .foregroundStyle(.green)
                 }
             }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+            .background(.bar)
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 6)
-        .background(.white.opacity(0.02))
-    }
-
-    private func footerKey(_ key: String, label: String) -> some View {
-        HStack(spacing: 3) {
-            Text(key)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .padding(.horizontal, 4)
-                .padding(.vertical, 1)
-                .background(.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 3))
-            Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.2))
+        .frame(width: 560)
+        .background(.regularMaterial)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .shadow(color: .black.opacity(0.2), radius: 16, y: 8)
+        .onAppear {
+            searchFocused = true
+            selectedID = results.first?.id
         }
-        .padding(.trailing, 12)
+        .environment(\.colorScheme, .dark)
     }
-
-    private func toastBar(_ message: String) -> some View {
-        HStack {
-            Image(systemName: "checkmark.circle.fill")
-                .foregroundStyle(.green)
-                .font(.system(size: 11))
-            Text(message)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
-            Spacer()
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 6)
-        .background(.green.opacity(0.08))
-        .transition(.move(edge: .bottom).combined(with: .opacity))
-    }
-
-    // MARK: - Actions
 
     private func executeSelected() {
-        guard let item = flatResults[safe: selectedIndex] else { return }
-
-        // Show toast
-        let msg: String
-        switch item {
-        case .host(let h): msg = "Connecting to \(h.name)..."
-        case .session(let h, let s): msg = "Attaching \(h.name):\(s.name)..."
-        case .project(let p): msg = "Opening \(p.name)..."
-        case .command(let label, _): msg = "Running \(label)..."
-        }
-
-        withAnimation(.easeIn(duration: 0.15)) { toast = msg }
-
-        // Execute after brief delay for visual feedback
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            onAction(item)
-        }
-    }
-
-    private func jumpToNextCategory() {
-        let flat = flatResults
-        guard !flat.isEmpty else { return }
-
-        let currentCat = flat[safe: selectedIndex]?.category ?? ""
-        // Find first item of the next category
-        var foundCurrent = false
-        for (i, item) in flat.enumerated() {
-            if item.category == currentCat {
-                foundCurrent = true
-            } else if foundCurrent {
-                selectedIndex = i
-                return
-            }
-        }
-        // Wrap to beginning
-        selectedIndex = 0
+        guard let id = selectedID,
+              let item = results.first(where: { $0.id == id }) else { return }
+        onAction(item)
     }
 }
 
-// MARK: - Row
+// MARK: - Row (HIG style: SF Symbol + primary/secondary text + accessory)
 
-struct LauncherRow: View {
+struct HIGLauncherRow: View {
     let item: LauncherItem
-    let isSelected: Bool
 
     var body: some View {
-        HStack(spacing: 0) {
-            // Icon
-            ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(iconColor.opacity(isSelected ? 0.2 : 0.1))
-                    .frame(width: 28, height: 28)
-                Image(systemName: iconName)
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(iconColor)
-            }
-            .padding(.trailing, 10)
+        HStack(spacing: 10) {
+            // Standard SF Symbol — no colored background box
+            Image(systemName: iconName)
+                .symbolRenderingMode(.hierarchical)
+                .foregroundStyle(iconColor)
+                .font(.body)
+                .frame(width: 24)
+                .accessibilityHidden(true)
 
-            // Title + subtitle
-            VStack(alignment: .leading, spacing: 1) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(item.title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(.white)
+                    .font(.body)
                     .lineLimit(1)
+
                 Text(item.subtitle)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.4))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                     .lineLimit(1)
             }
 
             Spacer()
 
-            // Action hint
-            if isSelected {
-                Text(actionHint)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.3))
-                    .padding(.horizontal, 6)
-                    .padding(.vertical, 2)
-                    .background(.white.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
-            }
-
-            // Inline metric for hosts
-            if case .host(let h) = item {
-                HStack(spacing: 8) {
-                    metricPill(
-                        "\(String(format: "%.0f", h.load))",
-                        color: h.load > 4 ? .red : h.load > 2 ? .orange : .green
-                    )
-                    metricPill(
-                        "\(h.diskPercent)%",
-                        color: h.diskPercent >= 85 ? .orange : .green
-                    )
-                    if h.claudeCount > 0 {
-                        metricPill("\(h.claudeCount)cl", color: .blue)
-                    }
-                }
-            }
+            // Accessory: system-style badges
+            accessory
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 7)
-        .background(isSelected ? Color.white.opacity(0.07) : .clear)
+        .padding(.vertical, 4)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel("\(item.title), \(item.subtitle)")
+        .accessibilityHint(accessibilityHint)
     }
 
-    private func metricPill(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
-            .foregroundStyle(color.opacity(0.8))
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(color.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 3))
-    }
-
-    private var actionHint: String {
+    @ViewBuilder
+    private var accessory: some View {
         switch item {
-        case .host: return "SSH"
-        case .session: return "ATTACH"
-        case .project: return "OPEN"
-        case .command: return "RUN"
+        case .host(let h):
+            HStack(spacing: 6) {
+                if h.diskPercent >= 85 {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .symbolRenderingMode(.multicolor)
+                        .font(.caption)
+                }
+                Text("load \(String(format: "%.1f", h.load))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+        case .session(_, let s):
+            Text(s.attached ? "attached" : "detached")
+                .font(.caption2)
+                .foregroundStyle(s.attached ? .blue : .secondary)
+        case .project(let p):
+            if let lang = p.tags.first {
+                Text(lang)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        case .command:
+            Image(systemName: "terminal")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
         }
     }
 
     private var iconName: String {
         switch item {
-        case .host: return "server.rack"
-        case .session: return "terminal"
-        case .project: return "folder.fill"
-        case .command: return "command"
+        case .host: "server.rack"
+        case .session: "terminal"
+        case .project: "folder"
+        case .command: "command"
         }
     }
 
     private var iconColor: Color {
         switch item {
-        case .host(let h): return h.reachable ? .green : .red
-        case .session(_, let s): return s.attached ? .blue : .gray
-        case .project(let p): return p.perspective.color
-        case .command: return .orange
+        case .host(let h): h.reachable ? .green : .red
+        case .session(_, let s): s.attached ? .blue : .gray
+        case .project: .accentColor
+        case .command: .orange
+        }
+    }
+
+    private var accessibilityHint: String {
+        switch item {
+        case .host: "Press return to SSH to this host"
+        case .session: "Press return to attach this tmux session"
+        case .project: "Press return to open on GitHub"
+        case .command: "Press return to run this command"
         }
     }
 }
-
-// MARK: - Safe Array Access
 
 extension Collection {
     subscript(safe index: Index) -> Element? {
