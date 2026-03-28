@@ -155,9 +155,7 @@ struct DispatchView: View {
                 .foregroundStyle(.white.opacity(0.5))
 
                 Button("Open in iTerm + Claude Code") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(context, forType: .string)
-                    DeskfloorApp.openInITerm("claude")
+                    DeskfloorApp.dispatchToAgent(context: context)
                     dispatched = true
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1) { onDismiss() }
                 }

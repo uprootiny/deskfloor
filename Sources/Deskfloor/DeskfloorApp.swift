@@ -83,6 +83,41 @@ struct DeskfloorApp: App {
         openInITerm(cmd)
     }
 
+    /// Dispatch context to a new Claude Code session.
+    /// Writes context to a temp file, passes as initial prompt to claude CLI.
+    static func dispatchToAgent(context: String, workDir: String? = nil) {
+        // Write context to temp file that claude can read
+        let tempDir = FileManager.default.temporaryDirectory
+        let contextFile = tempDir.appendingPathComponent("deskfloor-dispatch-\(UUID().uuidString.prefix(8)).md")
+        try? context.write(to: contextFile, atomically: true, encoding: .utf8)
+
+        // Also copy to clipboard as backup
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(context, forType: .string)
+
+        // claude takes a positional prompt argument
+        // Escape single quotes in context for shell
+        let escaped = context
+            .replacingOccurrences(of: "'", with: "'\\''")
+            .replacingOccurrences(of: "\"", with: "\\\"")
+
+        // Truncate if too long for command line (use file for long contexts)
+        var cmd = ""
+        if let dir = workDir {
+            cmd += "cd \(dir) && "
+        }
+
+        if context.count > 4000 {
+            // Long context: tell claude to read the file
+            cmd += "claude 'Read \(contextFile.path) and proceed with the tasks described there.'"
+        } else {
+            // Short context: pass directly as prompt
+            cmd += "claude '\(escaped)'"
+        }
+
+        openInITerm(cmd)
+    }
+
     static func openInITerm(_ command: String) {
         let escaped = command
             .replacingOccurrences(of: "\\", with: "\\\\")

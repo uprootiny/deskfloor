@@ -156,6 +156,16 @@ struct PasteAnalysisView: View {
                 .font(.system(size: 10, design: .monospaced))
                 .scrollContentBackground(.hidden)
                 .background(Color.white.opacity(0.02))
+                .onKeyPress(keys: [.init("v")], phases: .down) { press in
+                    if press.modifiers.contains(.command) {
+                        if let text = NSPasteboard.general.string(forType: .string) {
+                            rawPaste = text
+                            analyze()
+                        }
+                        return .handled
+                    }
+                    return .ignored
+                }
         }
     }
 
@@ -339,9 +349,7 @@ struct PasteAnalysisView: View {
                 .foregroundStyle(.white.opacity(0.5))
 
                 Button("Dispatch") {
-                    NSPasteboard.general.clearContents()
-                    NSPasteboard.general.setString(composerFullText, forType: .string)
-                    DeskfloorApp.openInITerm("claude")
+                    DeskfloorApp.dispatchToAgent(context: composerFullText)
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(.blue.opacity(0.7))
