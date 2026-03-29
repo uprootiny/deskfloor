@@ -33,7 +33,7 @@ enum PromptImporter {
             store.addPrompt(
                 title: title,
                 content: item.content,
-                tags: item.keywords.prefix(5).map(String.init)
+                tags: Array(item.keywords.prefix(5))
             )
             imported += 1
         }
