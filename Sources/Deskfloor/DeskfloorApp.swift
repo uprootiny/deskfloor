@@ -34,6 +34,15 @@ struct DeskfloorApp: App {
                     NotificationCenter.default.post(name: .importFromGitHub, object: nil)
                 }
                 .keyboardShortcut("i", modifiers: [.command, .shift])
+
+                Button("Import Harvested Prompts") {
+                    let url = FileManager.default.homeDirectoryForCurrentUser
+                        .appendingPathComponent("Nissan/harvested-prompts.json")
+                    if let count = try? PromptImporter.importHarvested(from: url, into: promptStore) {
+                        NSLog("[Deskfloor] Imported \(count) prompts from harvest")
+                    }
+                }
+                .keyboardShortcut("p", modifiers: [.command, .shift])
             }
         }
 
