@@ -92,7 +92,10 @@ struct ContentView: View {
                 }
                 fleetBar
             }
-            .onAppear { fleet.startPolling() }
+            .onAppear {
+                fleet.startPolling()
+                dataBus.poll(projects: store.projects)
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .preferredColorScheme(.dark)
@@ -343,7 +346,7 @@ struct ContentView: View {
             }
 
             if viewMode == .attention {
-                AttentionView(dataBus: dataBus)
+                AttentionView(dataBus: dataBus, store: store)
             }
         }
     }

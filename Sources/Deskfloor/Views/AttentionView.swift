@@ -1,142 +1,407 @@
 import SwiftUI
 
 /// "What needs my attention right now?" — sorted by severity, each item actionable.
+/// Left: alert list. Right: fleet topology + project health summary.
 struct AttentionView: View {
     @State var dataBus: DataBus
+    var store: ProjectStore?
+    @State private var selectedSource: String?
+    @State private var filter: AlertFilter = .all
+
+    enum AlertFilter: String, CaseIterable {
+        case all = "All"
+        case fleet = "Fleet"
+        case ci = "CI"
+        case project = "Projects"
+
+        func matches(_ source: String) -> Bool {
+            switch self {
+            case .all: true
+            case .fleet: source.hasPrefix("fleet:")
+            case .ci: source.hasPrefix("ci:")
+            case .project: source.hasPrefix("git:") || source.hasPrefix("stale:") || source.hasPrefix("encumbrance:")
+            }
+        }
+    }
+
+    private var filteredItems: [AttentionItem] {
+        dataBus.attentionItems.filter { filter.matches($0.source) }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            // Header
-            HStack {
-                let critCount = dataBus.attentionItems.filter { $0.severity == .critical }.count
-                let warnCount = dataBus.attentionItems.filter { $0.severity == .warning }.count
-
-                if critCount > 0 {
-                    HStack(spacing: 3) {
-                        Image(systemName: "exclamationmark.octagon.fill")
-                            .foregroundStyle(.red)
-                        Text("\(critCount) critical")
-                            .font(.system(size: 11, weight: .bold))
-                            .foregroundStyle(.red)
-                    }
-                }
-                if warnCount > 0 {
-                    HStack(spacing: 3) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .foregroundStyle(.orange)
-                        Text("\(warnCount) warning")
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundStyle(.orange)
-                    }
-                }
-                if dataBus.attentionItems.isEmpty {
-                    HStack(spacing: 4) {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.green)
-                        Text("All clear")
-                            .font(.system(size: 12, weight: .medium))
-                            .foregroundStyle(.green)
-                    }
-                }
-
-                Spacer()
-
-                if let lastPoll = dataBus.lastFleetPoll {
-                    Text(lastPoll, style: .relative)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.2))
-                }
-
-                Button(action: { dataBus.poll() }) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11))
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.white.opacity(0.4))
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 8)
-            .background(Color(red: 0.07, green: 0.07, blue: 0.09))
-
+            statusBar
             Divider().opacity(0.2)
 
             if dataBus.attentionItems.isEmpty && dataBus.fleetHosts.isEmpty {
-                // Not yet polled
-                VStack(spacing: 12) {
-                    ProgressView()
-                    Text("Polling fleet...")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.3))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .onAppear { dataBus.startPolling() }
-            } else if dataBus.attentionItems.isEmpty {
-                // Polled, all clear
-                VStack(spacing: 16) {
-                    Image(systemName: "checkmark.shield.fill")
-                        .font(.system(size: 48))
-                        .foregroundStyle(.green.opacity(0.3))
-                    Text("Fleet is healthy")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundStyle(.white.opacity(0.5))
-                    Text("No alerts. All \(dataBus.fleetHosts.count) hosts reporting normally.")
-                        .font(.system(size: 12))
-                        .foregroundStyle(.white.opacity(0.3))
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                loadingState
             } else {
-                // Alerts
                 HSplitView {
-                    alertList
-                        .frame(minWidth: 400)
-                    fleetOverview
-                        .frame(minWidth: 300)
+                    alertPanel
+                        .frame(minWidth: 420)
+                    rightPanel
+                        .frame(minWidth: 340)
                 }
             }
         }
         .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+        .onAppear {
+            dataBus.startPolling()
+            if let projects = store?.projects {
+                dataBus.poll(projects: projects)
+            }
+        }
+    }
+
+    // MARK: - Status Bar
+
+    private var statusBar: some View {
+        HStack(spacing: 12) {
+            // Severity counts
+            let critCount = dataBus.attentionItems.filter { $0.severity == .critical }.count
+            let warnCount = dataBus.attentionItems.filter { $0.severity == .warning }.count
+            let infoCount = dataBus.attentionItems.filter { $0.severity == .info }.count
+
+            if critCount > 0 {
+                severityPill(count: critCount, label: "critical", color: .red, icon: "exclamationmark.octagon.fill")
+            }
+            if warnCount > 0 {
+                severityPill(count: warnCount, label: "warning", color: .orange, icon: "exclamationmark.triangle.fill")
+            }
+            if infoCount > 0 {
+                severityPill(count: infoCount, label: "info", color: .blue, icon: "info.circle.fill")
+            }
+            if dataBus.attentionItems.isEmpty && !dataBus.fleetHosts.isEmpty {
+                HStack(spacing: 4) {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundStyle(.green)
+                    Text("All clear")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(.green)
+                }
+            }
+
+            Spacer()
+
+            // Filter chips
+            HStack(spacing: 2) {
+                ForEach(AlertFilter.allCases, id: \.rawValue) { f in
+                    Button(action: { filter = f }) {
+                        Text(f.rawValue)
+                            .font(.system(size: 9, weight: .medium, design: .monospaced))
+                            .foregroundStyle(filter == f ? .white : .white.opacity(0.3))
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(filter == f ? .white.opacity(0.1) : .clear)
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+
+            if let lastPoll = dataBus.lastFleetPoll {
+                Text(lastPoll, style: .relative)
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.2))
+            }
+
+            Button(action: {
+                if let projects = store?.projects {
+                    dataBus.poll(projects: projects)
+                } else {
+                    dataBus.poll()
+                }
+            }) {
+                Image(systemName: "arrow.clockwise")
+                    .font(.system(size: 11))
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.white.opacity(0.4))
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(Color(red: 0.07, green: 0.07, blue: 0.09))
+    }
+
+    private func severityPill(count: Int, label: String, color: Color, icon: String) -> some View {
+        HStack(spacing: 3) {
+            Image(systemName: icon)
+                .font(.system(size: 10))
+            Text("\(count) \(label)")
+                .font(.system(size: 11, weight: .bold))
+        }
+        .foregroundStyle(color)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 3)
+        .background(color.opacity(0.1))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    // MARK: - Loading
+
+    private var loadingState: some View {
+        VStack(spacing: 12) {
+            ProgressView()
+            Text("Polling fleet...")
+                .font(.system(size: 12))
+                .foregroundStyle(.white.opacity(0.3))
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .onAppear { dataBus.startPolling() }
     }
 
-    // MARK: - Alert List
+    // MARK: - Alert Panel (left)
 
-    private var alertList: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 2) {
-                ForEach(dataBus.attentionItems) { item in
-                    AttentionItemRow(item: item)
+    private var alertPanel: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if filteredItems.isEmpty {
+                VStack(spacing: 16) {
+                    Image(systemName: "checkmark.shield.fill")
+                        .font(.system(size: 48))
+                        .foregroundStyle(.green.opacity(0.3))
+                    Text(filter == .all ? "Fleet is healthy" : "No \(filter.rawValue.lowercased()) alerts")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundStyle(.white.opacity(0.5))
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(filteredItems) { item in
+                            AttentionItemRow(
+                                item: item,
+                                isSelected: selectedSource == item.source,
+                                onTap: { selectedSource = item.source }
+                            )
+                        }
+                    }
+                    .padding(8)
                 }
             }
-            .padding(8)
         }
     }
 
-    // MARK: - Fleet Overview (right pane)
+    // MARK: - Right Panel (topology + summary)
 
-    private var fleetOverview: some View {
+    private var rightPanel: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text("FLEET")
+            // Fleet topology
+            fleetTopology
+                .frame(minHeight: 200)
+
+            Divider().opacity(0.15)
+
+            // Summary stats
+            summaryStats
+        }
+    }
+
+    // MARK: - Fleet Topology
+
+    private var fleetTopology: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            HStack {
+                Text("FLEET TOPOLOGY")
+                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.2))
+                Spacer()
+                Text("\(dataBus.fleetHosts.count) hosts")
+                    .font(.system(size: 9, design: .monospaced))
+                    .foregroundStyle(.white.opacity(0.15))
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+
+            GeometryReader { geo in
+                let hosts = sortedHosts
+                let cols = hosts.count <= 3 ? hosts.count : (hosts.count + 1) / 2
+                let rows = hosts.count <= 3 ? 1 : 2
+                let cellW = geo.size.width / CGFloat(max(cols, 1))
+                let cellH = geo.size.height / CGFloat(rows)
+
+                ZStack {
+                    // Connection lines between hosts
+                    ForEach(Array(hosts.enumerated()), id: \.element.name) { i, _ in
+                        ForEach(Array(hosts.enumerated()), id: \.element.name) { j, _ in
+                            if j > i {
+                                let p1 = hostPosition(index: i, cols: cols, cellW: cellW, cellH: cellH)
+                                let p2 = hostPosition(index: j, cols: cols, cellW: cellW, cellH: cellH)
+                                Path { path in
+                                    path.move(to: p1)
+                                    path.addLine(to: p2)
+                                }
+                                .stroke(.white.opacity(0.04), lineWidth: 1)
+                            }
+                        }
+                    }
+
+                    // Host nodes
+                    ForEach(Array(hosts.enumerated()), id: \.element.name) { i, host in
+                        let pos = hostPosition(index: i, cols: cols, cellW: cellW, cellH: cellH)
+                        FleetNode(host: host, hasAlert: hostHasAlert(host.name))
+                            .position(pos)
+                            .onTapGesture { DeskfloorApp.sshJump(host: host.name) }
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+        }
+    }
+
+    private var sortedHosts: [DataBus.HostSnapshot] {
+        dataBus.fleetHosts.values.sorted { a, b in
+            if a.name == "hyle" { return true }
+            if b.name == "hyle" { return false }
+            return a.name < b.name
+        }
+    }
+
+    private func hostPosition(index: Int, cols: Int, cellW: CGFloat, cellH: CGFloat) -> CGPoint {
+        let row = index / cols
+        let col = index % cols
+        return CGPoint(
+            x: cellW * CGFloat(col) + cellW / 2,
+            y: cellH * CGFloat(row) + cellH / 2
+        )
+    }
+
+    private func hostHasAlert(_ name: String) -> Bool {
+        dataBus.attentionItems.contains { $0.source == "fleet:\(name)" }
+    }
+
+    // MARK: - Summary Stats
+
+    private var summaryStats: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("SUMMARY")
                 .font(.system(size: 9, weight: .bold, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.2))
                 .padding(.horizontal, 12)
-                .padding(.vertical, 8)
+                .padding(.top, 8)
 
             ScrollView {
-                LazyVStack(alignment: .leading, spacing: 4) {
-                    let sortedHosts = dataBus.fleetHosts.values
-                        .sorted { a, b in
-                            if a.name == "hyle" { return true }
-                            if b.name == "hyle" { return false }
-                            return a.name < b.name
+                VStack(alignment: .leading, spacing: 6) {
+                    // Fleet summary
+                    let totalClaude = dataBus.fleetHosts.values.reduce(0) { $0 + $1.claudeCount }
+                    let totalTmux = dataBus.fleetHosts.values.reduce(0) { $0 + $1.tmuxCount }
+                    let reachable = dataBus.fleetHosts.values.filter(\.reachable).count
+
+                    statRow("Hosts online", "\(reachable)/\(dataBus.fleetHosts.count)",
+                            color: reachable == dataBus.fleetHosts.count ? .green : .orange)
+                    statRow("Claude sessions", "\(totalClaude)", color: .blue)
+                    statRow("Tmux sessions", "\(totalTmux)", color: .white.opacity(0.6))
+
+                    Divider().opacity(0.1).padding(.vertical, 4)
+
+                    // CI summary
+                    if !dataBus.ciStatuses.isEmpty {
+                        let failing = dataBus.ciStatuses.values.filter { $0.status == .failure || $0.conclusion == "failure" }.count
+                        let passing = dataBus.ciStatuses.values.filter { $0.conclusion == "success" }.count
+
+                        statRow("CI passing", "\(passing)", color: .green)
+                        if failing > 0 {
+                            statRow("CI failing", "\(failing)", color: .red)
                         }
 
-                    ForEach(sortedHosts, id: \.name) { host in
-                        FleetHostCard(host: host)
+                        Divider().opacity(0.1).padding(.vertical, 4)
+                    }
+
+                    // Project summary
+                    if let projects = store?.projects {
+                        let active = projects.filter { $0.status == .active }.count
+                        let dirty = projects.filter { ($0.dirtyFiles ?? 0) > 0 }.count
+                        let encumbered = projects.filter { !$0.encumbrances.isEmpty }.count
+
+                        statRow("Active projects", "\(active)", color: .green)
+                        if dirty > 0 {
+                            statRow("With uncommitted", "\(dirty)", color: .orange)
+                        }
+                        if encumbered > 0 {
+                            statRow("Blocked", "\(encumbered)", color: .red)
+                        }
                     }
                 }
-                .padding(.horizontal, 8)
+                .padding(.horizontal, 12)
+                .padding(.bottom, 8)
             }
         }
+    }
+
+    private func statRow(_ label: String, _ value: String, color: Color) -> some View {
+        HStack {
+            Text(label)
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.4))
+            Spacer()
+            Text(value)
+                .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                .foregroundStyle(color)
+        }
+    }
+}
+
+// MARK: - Fleet Node (topology visualization)
+
+struct FleetNode: View {
+    let host: DataBus.HostSnapshot
+    let hasAlert: Bool
+
+    var body: some View {
+        VStack(spacing: 4) {
+            ZStack {
+                // Outer ring: health color
+                Circle()
+                    .stroke(ringColor, lineWidth: 2)
+                    .frame(width: 52, height: 52)
+
+                // Alert pulse
+                if hasAlert {
+                    Circle()
+                        .stroke(ringColor.opacity(0.3), lineWidth: 1)
+                        .frame(width: 60, height: 60)
+                }
+
+                // Inner circle
+                Circle()
+                    .fill(ringColor.opacity(0.1))
+                    .frame(width: 48, height: 48)
+
+                // Content
+                VStack(spacing: 1) {
+                    Text(host.sigil)
+                        .font(.system(size: 16))
+                    if host.claudeCount > 0 {
+                        Text("\(host.claudeCount)cl")
+                            .font(.system(size: 7, weight: .bold, design: .monospaced))
+                            .foregroundStyle(.blue)
+                    }
+                }
+            }
+
+            Text(host.name)
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.7))
+
+            // Metric bar
+            HStack(spacing: 6) {
+                miniMetric(host.load, threshold: 5, format: "%.0f")
+                miniMetric(Double(host.diskPercent), threshold: 85, format: "%.0f%%")
+            }
+        }
+        .help("Click to SSH to \(host.name)\nLoad: \(String(format: "%.1f", host.load)) | Disk: \(host.diskPercent)% | Mem: \(Int(host.memPercent))%")
+    }
+
+    private var ringColor: Color {
+        if !host.reachable { return .red }
+        if host.diskPercent >= 90 || host.load > 8 { return .red }
+        if host.diskPercent >= 80 || host.load > 5 { return .orange }
+        return .green
+    }
+
+    private func miniMetric(_ value: Double, threshold: Double, format: String) -> some View {
+        Text(String(format: format, value))
+            .font(.system(size: 7, design: .monospaced))
+            .foregroundStyle(value >= threshold ? .orange : .white.opacity(0.3))
     }
 }
 
@@ -144,10 +409,11 @@ struct AttentionView: View {
 
 struct AttentionItemRow: View {
     let item: AttentionItem
+    var isSelected: Bool = false
+    var onTap: (() -> Void)?
 
     var body: some View {
         HStack(alignment: .top, spacing: 10) {
-            // Severity icon
             Image(systemName: item.severity.icon)
                 .font(.system(size: 14))
                 .foregroundStyle(item.severity.color)
@@ -162,7 +428,6 @@ struct AttentionItemRow: View {
                     .font(.system(size: 11))
                     .foregroundStyle(.white.opacity(0.5))
 
-                // Action buttons
                 HStack(spacing: 8) {
                     ForEach(Array(item.actions.enumerated()), id: \.0) { _, action in
                         Button(action: { executeAction(action) }) {
@@ -186,17 +451,22 @@ struct AttentionItemRow: View {
                 .foregroundStyle(.white.opacity(0.2))
         }
         .padding(10)
-        .background(item.severity == .critical ? item.severity.color.opacity(0.05) : .clear)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .background(
+            RoundedRectangle(cornerRadius: 6)
+                .fill(isSelected ? item.severity.color.opacity(0.08) :
+                      item.severity == .critical ? item.severity.color.opacity(0.04) : .clear)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture { onTap?() }
     }
 
     private func actionLabel(_ action: AttentionItem.Action) -> String {
         switch action {
-        case .sshTo(let host): return "SSH to \(host)"
-        case .openURL: return "Open"
-        case .runCommand(let cmd, _): return "Run: \(cmd.prefix(20))"
-        case .dispatch: return "Dispatch Agent"
-        case .openProject: return "View Project"
+        case .sshTo(let host): "SSH \(host)"
+        case .openURL: "Open"
+        case .runCommand(let cmd, _): "Run: \(cmd.prefix(20))"
+        case .dispatch: "Dispatch Agent"
+        case .openProject: "View Project"
         }
     }
 
@@ -216,97 +486,6 @@ struct AttentionItemRow: View {
             DeskfloorApp.dispatchToAgent(context: context)
         case .openProject:
             break // TODO: navigate to project
-        }
-    }
-}
-
-// MARK: - Fleet Host Card
-
-struct FleetHostCard: View {
-    let host: DataBus.HostSnapshot
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Text(host.sigil)
-                    .font(.system(size: 14))
-                Text(host.name)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white)
-
-                Spacer()
-
-                Circle()
-                    .fill(host.reachable ? .green : .red)
-                    .frame(width: 6, height: 6)
-            }
-
-            // Metrics
-            HStack(spacing: 12) {
-                metricView("load", "\(String(format: "%.1f", host.load))",
-                          color: host.load > 5 ? .red : host.load > 2 ? .orange : .green)
-                metricView("disk", "\(host.diskPercent)%",
-                          color: host.diskPercent >= 90 ? .red : host.diskPercent >= 80 ? .orange : .green)
-                metricView("mem", "\(Int(host.memPercent))%",
-                          color: host.memPercent > 80 ? .orange : .green)
-                if host.claudeCount > 0 {
-                    metricView("claude", "\(host.claudeCount)", color: .blue)
-                }
-                metricView("tmux", "\(host.tmuxCount)", color: .white.opacity(0.5))
-            }
-
-            // Sessions
-            if !host.sessions.isEmpty {
-                HStack(spacing: 4) {
-                    ForEach(host.sessions.prefix(6), id: \.self) { session in
-                        Button(action: {
-                            DeskfloorApp.sshJump(host: host.name, session: session)
-                        }) {
-                            Text(session)
-                                .font(.system(size: 8, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.5))
-                                .padding(.horizontal, 4)
-                                .padding(.vertical, 1)
-                                .background(.white.opacity(0.06))
-                                .clipShape(RoundedRectangle(cornerRadius: 3))
-                        }
-                        .buttonStyle(.plain)
-                        .help("Attach \(session) on \(host.name)")
-                    }
-                    if host.sessions.count > 6 {
-                        Text("+\(host.sessions.count - 6)")
-                            .font(.system(size: 8, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.3))
-                    }
-                }
-            }
-        }
-        .padding(10)
-        .background(.white.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
-        .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(host.diskPercent >= 90 ? .red.opacity(0.3) : .white.opacity(0.06), lineWidth: 1)
-        )
-        .contextMenu {
-            Button("SSH to \(host.name)") { DeskfloorApp.sshJump(host: host.name) }
-            Button("Run Agent Session") {
-                DeskfloorApp.dispatchToAgent(
-                    context: "You are on \(host.name). Load: \(host.load), Disk: \(host.diskPercent)%, \(host.claudeCount) claude instances, \(host.tmuxCount) tmux sessions. Investigate and report status.",
-                    workDir: nil
-                )
-            }
-        }
-    }
-
-    private func metricView(_ label: String, _ value: String, color: Color) -> some View {
-        VStack(spacing: 1) {
-            Text(value)
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(color)
-            Text(label)
-                .font(.system(size: 7, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.25))
         }
     }
 }
