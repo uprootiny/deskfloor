@@ -220,18 +220,26 @@ struct AttentionView: View {
                 let cellH = geo.size.height / CGFloat(rows)
 
                 ZStack {
-                    // Connection lines between hosts
-                    ForEach(Array(hosts.enumerated()), id: \.element.name) { i, _ in
-                        ForEach(Array(hosts.enumerated()), id: \.element.name) { j, _ in
-                            if j > i {
-                                let p1 = hostPosition(index: i, cols: cols, cellW: cellW, cellH: cellH)
-                                let p2 = hostPosition(index: j, cols: cols, cellW: cellW, cellH: cellH)
-                                Path { path in
-                                    path.move(to: p1)
-                                    path.addLine(to: p2)
-                                }
-                                .stroke(.white.opacity(0.04), lineWidth: 1)
+                    // Connection lines — encode real network topology
+                    // hyle↔hub2 (coloc), nabla↔gcp1 (both GCP), hyle↔finml (SSH tunnel)
+                    let edges: [(String, String, Double)] = [
+                        ("hyle", "hub2", 0.08),       // coloc — strong link
+                        ("nabla", "gcp1", 0.06),      // both GCP
+                        ("hyle", "finml", 0.03),      // SSH only
+                        ("hyle", "karlsruhe", 0.03),  // SSH only
+                        ("hyle", "nabla", 0.03),      // SSH tunnel via hyle
+                        ("hyle", "gcp1", 0.03),       // SSH tunnel via hyle
+                    ]
+                    let nameToIndex = Dictionary(uniqueKeysWithValues: hosts.enumerated().map { ($1.name, $0) })
+                    ForEach(Array(edges.enumerated()), id: \.0) { _, edge in
+                        if let i = nameToIndex[edge.0], let j = nameToIndex[edge.1] {
+                            let p1 = hostPosition(index: i, cols: cols, cellW: cellW, cellH: cellH)
+                            let p2 = hostPosition(index: j, cols: cols, cellW: cellW, cellH: cellH)
+                            Path { path in
+                                path.move(to: p1)
+                                path.addLine(to: p2)
                             }
+                            .stroke(.white.opacity(edge.2), lineWidth: edge.2 > 0.05 ? 1.5 : 1)
                         }
                     }
 
@@ -249,14 +257,38 @@ struct AttentionView: View {
     }
 
     private var sortedHosts: [DataBus.HostSnapshot] {
-        dataBus.fleetHosts.values.sorted { a, b in
-            if a.name == "hyle" { return true }
-            if b.name == "hyle" { return false }
-            return a.name < b.name
+        // Topology order: coloc cluster (hyle, hub2), then standalone (finml, karlsruhe), then GCP (nabla, gcp1)
+        let order = ["hyle", "hub2", "finml", "karlsruhe", "nabla", "gcp1"]
+        return dataBus.fleetHosts.values.sorted { a, b in
+            (order.firstIndex(of: a.name) ?? 99) < (order.firstIndex(of: b.name) ?? 99)
         }
     }
 
+    /// Topology-aware positioning: coloc hosts cluster together, GCP hosts group on the right
     private func hostPosition(index: Int, cols: Int, cellW: CGFloat, cellH: CGFloat) -> CGPoint {
+        let hosts = sortedHosts
+        guard index < hosts.count else {
+            return CGPoint(x: cellW / 2, y: cellH / 2)
+        }
+        let name = hosts[index].name
+
+        // Predefined topology layout (normalized 0-1)
+        let positions: [String: (CGFloat, CGFloat)] = [
+            "hyle":      (0.15, 0.35),  // Primary — left center
+            "hub2":      (0.15, 0.70),  // Coloc with hyle — below
+            "finml":     (0.50, 0.25),  // Standalone — center top
+            "karlsruhe": (0.50, 0.75),  // NixOS — center bottom
+            "nabla":     (0.85, 0.35),  // GCP — right top
+            "gcp1":      (0.85, 0.70),  // GCP — right bottom
+        ]
+
+        let totalW = cellW * CGFloat(max(cols, 1))
+        let totalH = cellH * CGFloat(hosts.count <= 3 ? 1 : 2)
+
+        if let (nx, ny) = positions[name] {
+            return CGPoint(x: totalW * nx, y: totalH * ny)
+        }
+        // Fallback for unknown hosts
         let row = index / cols
         let col = index % cols
         return CGPoint(

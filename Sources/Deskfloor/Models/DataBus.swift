@@ -67,7 +67,7 @@ final class DataBus {
     }
 
     func poll() {
-        Task.detached(priority: .utility) { [weak self] in
+        Task.detached(priority: .utility) { @Sendable [weak self] in
             await self?.pollFleet()
             await self?.generateAlerts(projects: [])
         }
@@ -75,10 +75,11 @@ final class DataBus {
 
     /// Full poll including project health analysis
     func poll(projects: [Project]) {
-        Task.detached(priority: .utility) { [weak self] in
+        let projectsCopy = projects  // capture Sendable copy
+        Task.detached(priority: .utility) { @Sendable [weak self] in
             await self?.pollFleet()
-            await self?.pollCI(projects: projects)
-            await self?.generateAlerts(projects: projects)
+            await self?.pollCI(projects: projectsCopy)
+            await self?.generateAlerts(projects: projectsCopy)
         }
     }
 
@@ -134,14 +135,22 @@ final class DataBus {
         let repos = projects.compactMap(\.repo).filter { !$0.isEmpty }
         guard !repos.isEmpty else { return }
 
-        // Poll up to 20 repos to avoid hammering GitHub
+        // Concurrent polling, capped at 20 repos with 6 concurrent fetches
         let batch = Array(repos.prefix(20))
-        var runs: [String: CIRun] = [:]
-
-        for repo in batch {
-            if let run = await fetchLatestCIRun(repo: repo) {
-                runs[repo] = run
+        let runs = await withTaskGroup(of: (String, CIRun)?.self, returning: [String: CIRun].self) { group in
+            for repo in batch {
+                group.addTask { [self] in
+                    guard let run = await self.fetchLatestCIRun(repo: repo) else { return nil }
+                    return (repo, run)
+                }
             }
+            var result: [String: CIRun] = [:]
+            for await pair in group {
+                if let (repo, run) = pair {
+                    result[repo] = run
+                }
+            }
+            return result
         }
 
         await MainActor.run {
@@ -150,45 +159,45 @@ final class DataBus {
         }
     }
 
+    private static let iso8601 = ISO8601DateFormatter()
+
     private func fetchLatestCIRun(repo: String) async -> CIRun? {
-        let process = Process()
-        let pipe = Pipe()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = ["gh", "run", "list", "-R", repo, "--limit", "1", "--json", "status,conclusion,headBranch,updatedAt,url"]
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+        await withCheckedContinuation { continuation in
+            let process = Process()
+            let pipe = Pipe()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = ["gh", "run", "list", "-R", repo, "--limit", "1",
+                                 "--json", "status,conclusion,headBranch,updatedAt,url"]
+            process.standardOutput = pipe
+            process.standardError = FileHandle.nullDevice
+            process.terminationHandler = { proc in
+                guard proc.terminationStatus == 0 else {
+                    continuation.resume(returning: nil)
+                    return
+                }
+                let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                guard let arr = try? JSONSerialization.jsonObject(with: data) as? [[String: Any]],
+                      let raw = arr.first else {
+                    continuation.resume(returning: nil)
+                    return
+                }
 
-        do {
-            try process.run()
-            process.waitUntilExit()
-            guard process.terminationStatus == 0 else { return nil }
+                let statusStr = raw["status"] as? String ?? "unknown"
+                let conclusion = raw["conclusion"] as? String
+                let branch = raw["headBranch"] as? String ?? "?"
+                let urlStr = raw["url"] as? String
+                let updatedAt = (raw["updatedAt"] as? String).flatMap { Self.iso8601.date(from: $0) }
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            guard let arr = try JSONSerialization.jsonObject(with: data) as? [[String: Any]],
-                  let raw = arr.first else { return nil }
+                let status: CIRun.CIStatus = (conclusion == "failure")
+                    ? .failure
+                    : CIRun.CIStatus(rawValue: statusStr) ?? .unknown
 
-            let statusStr = raw["status"] as? String ?? "unknown"
-            let conclusion = raw["conclusion"] as? String
-            let branch = raw["headBranch"] as? String ?? "?"
-            let urlStr = raw["url"] as? String
-
-            var updatedAt: Date?
-            if let dateStr = raw["updatedAt"] as? String {
-                let fmt = ISO8601DateFormatter()
-                updatedAt = fmt.date(from: dateStr)
+                continuation.resume(returning: CIRun(
+                    repo: repo, status: status, conclusion: conclusion,
+                    branch: branch, updatedAt: updatedAt, url: urlStr
+                ))
             }
-
-            let status: CIRun.CIStatus
-            if let conclusion, conclusion == "failure" {
-                status = .failure
-            } else {
-                status = CIRun.CIStatus(rawValue: statusStr) ?? .unknown
-            }
-
-            return CIRun(repo: repo, status: status, conclusion: conclusion,
-                         branch: branch, updatedAt: updatedAt, url: urlStr)
-        } catch {
-            return nil
+            do { try process.run() } catch { continuation.resume(returning: nil) }
         }
     }
 
@@ -298,6 +307,12 @@ final class DataBus {
 
         // Sort: critical first, then warning, then info
         alerts.sort { $0.severity.rank < $1.severity.rank }
+
+        // Preserve acknowledged state from previous poll
+        let previousAcks = Set(self.attentionItems.filter(\.acknowledged).map(\.source))
+        for i in alerts.indices where previousAcks.contains(alerts[i].source) {
+            alerts[i].acknowledged = true
+        }
 
         await MainActor.run {
             self.attentionItems = alerts
