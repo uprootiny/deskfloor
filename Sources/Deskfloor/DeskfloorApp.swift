@@ -15,7 +15,6 @@ struct DeskfloorApp: App {
         WindowGroup("Deskfloor", id: "dashboard") {
             ContentView(store: store)
                 .frame(minWidth: 900, minHeight: 600)
-                .background(Color(red: 0.08, green: 0.08, blue: 0.1))
                 .onAppear {
                     // Wire stores to AppDelegate for launcher access
                     appDelegate.store = store
@@ -157,7 +156,8 @@ struct DeskfloorApp: App {
             sshJump(host: h.name, session: s.name)
         case .project(let p):
             if let localPath = p.localPath {
-                openInITerm("cd \(localPath)")
+                // Launch Claude Code session in the project directory
+                openInITerm("cd \(localPath) && claude")
             } else if let repo = p.repo, let url = URL(string: "https://github.com/\(repo)") {
                 NSWorkspace.shared.open(url)
             }

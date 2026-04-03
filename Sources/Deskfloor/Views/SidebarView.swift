@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SidebarView: View {
+    @Environment(\.colorScheme) private var scheme
     @Binding var searchText: String
     @Binding var selectedPerspectives: Set<Perspective>
     @Binding var selectedStatuses: Set<Status>
@@ -11,34 +12,33 @@ struct SidebarView: View {
     let filteredCount: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            // Search
-            HStack(spacing: 6) {
-                Image(systemName: "magnifyingglass")
-                    .font(.system(size: 11))
-                    .foregroundStyle(.white.opacity(0.3))
-                TextField("Search...", text: $searchText)
-                    .textFieldStyle(.plain)
-                    .font(.system(size: 12))
-                if !searchText.isEmpty {
-                    Button(action: { searchText = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 10))
-                            .foregroundStyle(.white.opacity(0.3))
+        VStack(alignment: .leading, spacing: Df.space4) {
+            // Search — inset field
+            DfInsetField {
+                HStack(spacing: 6) {
+                    Image(systemName: "magnifyingglass")
+                        .font(.system(size: 11))
+                        .foregroundStyle(Df.textTertiary(scheme))
+                    TextField("Search...", text: $searchText)
+                        .textFieldStyle(.plain)
+                        .font(Df.bodyFont)
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(Df.textTertiary(scheme))
+                        }
+                        .buttonStyle(.plain)
                     }
-                    .buttonStyle(.plain)
                 }
             }
-            .padding(8)
-            .background(Color.white.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
 
             // Count
             Text("\(filteredCount) of \(projectCount) projects")
-                .font(.system(size: 10, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.3))
+                .font(Df.monoSmallFont)
+                .foregroundStyle(Df.textTertiary(scheme))
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().opacity(0.5)
 
             // Perspectives
             filterSection("Perspective") {
@@ -52,7 +52,7 @@ struct SidebarView: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().opacity(0.5)
 
             // Statuses
             filterSection("Status") {
@@ -66,7 +66,7 @@ struct SidebarView: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().opacity(0.5)
 
             // Encumbrances
             filterSection("Encumbrances") {
@@ -80,7 +80,7 @@ struct SidebarView: View {
                 }
             }
 
-            Divider().background(Color.white.opacity(0.1))
+            Divider().opacity(0.5)
 
             // Quick filters
             filterSection("Quick Filters") {
@@ -89,7 +89,7 @@ struct SidebarView: View {
                         Image(systemName: "arrow.right.circle")
                             .font(.system(size: 10))
                         Text("Handoff ready")
-                            .font(.system(size: 11))
+                            .font(Df.captionFont)
                     }
                 }
                 .toggleStyle(.checkbox)
@@ -99,7 +99,7 @@ struct SidebarView: View {
                         Image(systemName: "exclamationmark.triangle")
                             .font(.system(size: 10))
                         Text("Has encumbrances")
-                            .font(.system(size: 11))
+                            .font(Df.captionFont)
                     }
                 }
                 .toggleStyle(.checkbox)
@@ -111,14 +111,14 @@ struct SidebarView: View {
             if hasActiveFilters {
                 Button(action: clearAll) {
                     Text("Clear all filters")
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.5))
+                        .font(Df.captionFont)
+                        .foregroundStyle(Df.textSecondary(scheme))
                 }
                 .buttonStyle(.plain)
-                .padding(.bottom, 8)
+                .padding(.bottom, Df.space2)
             }
         }
-        .padding(12)
+        .padding(Df.space3)
         .frame(minWidth: 180, idealWidth: 200, maxWidth: 220)
     }
 
@@ -137,10 +137,10 @@ struct SidebarView: View {
     }
 
     private func filterSection<Content: View>(_ title: String, @ViewBuilder content: () -> Content) -> some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: Df.space1) {
             Text(title)
-                .font(.system(size: 9, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.3))
+                .font(Df.microFont)
+                .foregroundStyle(Df.textTertiary(scheme))
                 .textCase(.uppercase)
             content()
         }
@@ -152,9 +152,10 @@ struct SidebarView: View {
                 Circle()
                     .fill(isOn ? color : color.opacity(0.2))
                     .frame(width: 8, height: 8)
+                    .shadow(color: isOn ? color.opacity(0.4) : .clear, radius: 3)
                 Text(label)
-                    .font(.system(size: 11))
-                    .foregroundStyle(isOn ? .white : .white.opacity(0.4))
+                    .font(Df.captionFont)
+                    .foregroundStyle(isOn ? Df.textPrimary(scheme) : Df.textTertiary(scheme))
                 Spacer()
             }
             .contentShape(Rectangle())

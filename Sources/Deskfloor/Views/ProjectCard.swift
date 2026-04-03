@@ -1,100 +1,86 @@
 import SwiftUI
 
 struct ProjectCard: View {
+    @Environment(\.colorScheme) private var scheme
     let project: Project
     var isSelected: Bool = false
     var onTap: () -> Void = {}
 
-    private let monoFont = Font.system(size: 11, design: .monospaced)
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            HStack(spacing: 6) {
-                Text(project.name)
-                    .font(.system(size: 12, weight: .semibold, design: .monospaced))
-                    .foregroundStyle(.white)
-                    .lineLimit(1)
-
-                Spacer()
-
-                perspectiveBadge
-
-                if let repo = project.repo {
-                    Button(action: {
-                        if let url = URL(string: "https://github.com/\(repo)") {
-                            NSWorkspace.shared.open(url)
-                        }
-                    }) {
-                        Image(systemName: "link")
-                            .font(.system(size: 9))
-                            .foregroundStyle(.white.opacity(0.4))
-                    }
-                    .buttonStyle(.plain)
-                    .help("Open on GitHub")
-                }
-            }
-
-            if !project.description.isEmpty {
-                Text(project.description)
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.6))
-                    .lineLimit(1)
-            }
-
-            // Git info row
-            if let branch = project.gitBranch {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.triangle.branch")
-                        .font(.system(size: 8))
-                        .foregroundStyle(.white.opacity(0.3))
-                    Text(branch)
-                        .font(.system(size: 9, design: .monospaced))
-                        .foregroundStyle(.white.opacity(0.5))
+        DfCard(isSelected: isSelected, accentColor: project.perspective.color) {
+            VStack(alignment: .leading, spacing: Df.space1) {
+                HStack(spacing: 6) {
+                    Text(project.name)
+                        .font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        .foregroundStyle(Df.textPrimary(scheme))
                         .lineLimit(1)
-                    if let dirty = project.dirtyFiles, dirty > 0 {
-                        Text("\(dirty) changed")
-                            .font(.system(size: 8, design: .monospaced))
-                            .foregroundStyle(Color(red: 0.9, green: 0.6, blue: 0.2))
-                    }
-                    if project.commitCount > 0 {
-                        Text("\(project.commitCount) commits")
-                            .font(.system(size: 8, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.3))
-                    }
+
                     Spacer()
+
+                    perspectiveBadge
+
+                    if let repo = project.repo {
+                        Button(action: {
+                            if let url = URL(string: "https://github.com/\(repo)") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }) {
+                            Image(systemName: "link")
+                                .font(.system(size: 9))
+                                .foregroundStyle(Df.textTertiary(scheme))
+                        }
+                        .buttonStyle(.plain)
+                        .help("Open on GitHub")
+                    }
+                }
+
+                if !project.description.isEmpty {
+                    Text(project.description)
+                        .font(Df.captionFont)
+                        .foregroundStyle(Df.textSecondary(scheme))
+                        .lineLimit(1)
+                }
+
+                // Git info row
+                if let branch = project.gitBranch {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.triangle.branch")
+                            .font(.system(size: 8))
+                            .foregroundStyle(Df.textTertiary(scheme))
+                        Text(branch)
+                            .font(Df.monoSmallFont)
+                            .foregroundStyle(Df.textSecondary(scheme))
+                            .lineLimit(1)
+                        if let dirty = project.dirtyFiles, dirty > 0 {
+                            DfPill(text: "\(dirty) changed", color: Df.tentative)
+                        }
+                        if project.commitCount > 0 {
+                            Text("\(project.commitCount) commits")
+                                .font(.system(size: 8, design: .monospaced))
+                                .foregroundStyle(Df.textTertiary(scheme))
+                        }
+                        Spacer()
+                    }
+                }
+
+                HStack(spacing: 6) {
+                    if let lastActivity = project.lastActivity {
+                        Text(relativeDate(lastActivity))
+                            .font(Df.monoFont)
+                            .foregroundStyle(Df.textTertiary(scheme))
+                    }
+
+                    if let type = project.projectType ?? project.tags.first, !type.isEmpty {
+                        DfPill(text: type, color: languageColor(type))
+                    }
+
+                    Spacer()
+
+                    encumbranceDots
                 }
             }
-
-            HStack(spacing: 6) {
-                if let lastActivity = project.lastActivity {
-                    Text(relativeDate(lastActivity))
-                        .font(monoFont)
-                        .foregroundStyle(.white.opacity(0.4))
-                }
-
-                // Language / project type tag
-                if let type = project.projectType ?? project.tags.first, !type.isEmpty {
-                    Text(type)
-                        .font(.system(size: 8, weight: .medium, design: .monospaced))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 1)
-                        .background(languageColor(type).opacity(0.2))
-                        .foregroundStyle(languageColor(type))
-                        .clipShape(RoundedRectangle(cornerRadius: 3))
-                }
-
-                Spacer()
-
-                encumbranceDots
-            }
+            .padding(Df.space2)
         }
-        .padding(8)
-        .background(isSelected ? Color.blue.opacity(0.12) : Color.white.opacity(0.06))
-        .clipShape(RoundedRectangle(cornerRadius: 6))
-        .overlay(
-            RoundedRectangle(cornerRadius: 6)
-                .stroke(isSelected ? Color.blue.opacity(0.4) : Color.white.opacity(0.08), lineWidth: isSelected ? 1.5 : 1)
-        )
         .contentShape(Rectangle())
         .onTapGesture(perform: onTap)
         .contextMenu {
@@ -137,7 +123,6 @@ struct ProjectCard: View {
             Menu("Set Status") {
                 ForEach(Status.allCases) { status in
                     Button(status.label) {
-                        // Status change needs store access — post notification
                         NotificationCenter.default.post(
                             name: .projectStatusChange,
                             object: nil,
@@ -154,7 +139,7 @@ struct ProjectCard: View {
             .font(.system(size: 8, weight: .medium))
             .padding(.horizontal, 5)
             .padding(.vertical, 2)
-            .background(project.perspective.color.opacity(0.25))
+            .background(project.perspective.color.opacity(scheme == .dark ? 0.25 : 0.15))
             .foregroundStyle(project.perspective.color)
             .clipShape(Capsule())
     }
@@ -171,7 +156,7 @@ struct ProjectCard: View {
             if project.handoffReady {
                 Image(systemName: "arrow.right.circle.fill")
                     .font(.system(size: 8))
-                    .foregroundStyle(Color(red: 0.3, green: 0.7, blue: 0.5))
+                    .foregroundStyle(Df.certain)
                     .help("Handoff ready")
             }
         }
@@ -189,7 +174,7 @@ struct ProjectCard: View {
         case "html", "css": return Color(red: 0.9, green: 0.4, blue: 0.2)
         case "shell": return Color(red: 0.5, green: 0.7, blue: 0.5)
         case "c++", "c": return Color(red: 0.4, green: 0.5, blue: 0.8)
-        default: return .white.opacity(0.5)
+        default: return Df.textSecondary(.dark)
         }
     }
 

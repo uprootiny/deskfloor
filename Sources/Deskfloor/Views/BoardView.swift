@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct BoardView: View {
+    @Environment(\.colorScheme) private var scheme
     @Bindable var store: ProjectStore
     let filteredProjects: [Project]
     @Binding var selectedProject: Project?
@@ -8,7 +9,7 @@ struct BoardView: View {
 
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(alignment: .top, spacing: 12) {
+            HStack(alignment: .top, spacing: Df.space3) {
                 ForEach(Status.allCases) { status in
                     statusColumn(status)
                 }
@@ -19,26 +20,25 @@ struct BoardView: View {
 
     private func statusColumn(_ status: Status) -> some View {
         VStack(alignment: .leading, spacing: 0) {
-            // Column header
+            // Column header — skeuomorphic tab
             HStack {
-                Circle()
-                    .fill(status.color)
-                    .frame(width: 8, height: 8)
+                DfStatusDot(color: status.color)
                 Text(status.label)
-                    .font(.system(size: 11, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.7))
+                    .font(Df.headlineFont)
+                    .foregroundStyle(Df.textSecondary(scheme))
                 Text("\(projectsFor(status).count)")
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.3))
+                    .font(Df.monoSmallFont)
+                    .foregroundStyle(Df.textTertiary(scheme))
                 Spacer()
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 6)
+            .padding(.horizontal, Df.space2)
+            .padding(.vertical, Df.space2)
 
-            Divider().background(status.color.opacity(0.3))
+            Divider()
+                .overlay(status.color.opacity(0.3))
 
             ScrollView(.vertical, showsIndicators: false) {
-                LazyVStack(spacing: 6) {
+                LazyVStack(spacing: Df.space2) {
                     ForEach(projectsFor(status)) { project in
                         ProjectCard(
                             project: project,
@@ -48,29 +48,37 @@ struct BoardView: View {
                         }
                         .onTapGesture {
                             if NSEvent.modifierFlags.contains(.command) {
-                                // Cmd+Click: toggle multi-select
                                 if selectedProjects.contains(project.id) {
                                     selectedProjects.remove(project.id)
                                 } else {
                                     selectedProjects.insert(project.id)
                                 }
                             } else {
-                                // Normal click: open detail
                                 selectedProject = project
                             }
                         }
                         .draggable(project.id.uuidString)
                     }
                 }
-                .padding(6)
+                .padding(Df.space2)
             }
         }
-        .frame(width: 240)
-        .background(Color.white.opacity(0.03))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .frame(minWidth: 220, idealWidth: 260)
+        .background(Df.surface(scheme).opacity(0.5))
+        .clipShape(RoundedRectangle(cornerRadius: Df.radiusMedium))
         .overlay(
-            RoundedRectangle(cornerRadius: 8)
-                .stroke(status.color.opacity(0.15), lineWidth: 1)
+            RoundedRectangle(cornerRadius: Df.radiusMedium)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            status.color.opacity(0.15),
+                            Df.border(scheme)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
         )
         .dropDestination(for: String.self) { items, _ in
             for item in items {

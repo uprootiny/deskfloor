@@ -39,6 +39,7 @@ final class LauncherWindowController {
             p.isOpaque = false
             p.backgroundColor = .clear
             p.hasShadow = true
+            p.appearance = NSAppearance(named: .darkAqua)
             panel = p
         }
 

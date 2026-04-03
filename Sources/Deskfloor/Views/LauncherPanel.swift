@@ -1,11 +1,15 @@
 import SwiftUI
 
-// MARK: - Launcher Panel (Nielsen Usability Heuristics variant)
+// MARK: - Launcher Panel
 //
-// Every design choice maps to one of Nielsen's 10 heuristics.
-// Comments reference the heuristic number: [N1] = visibility of system status, etc.
+// Skeuomorphic: frosted-glass panel with depth, beveled search field, tactile keycaps.
+// Epistemic: results encode provenance (host/session/project/prompt) via icon+color;
+//            disabled items show *why* with strikethrough + warning; toasts confirm actions.
+// Compositional: grouped results with category headers, consistent row rhythm, footer hints.
+// Nielsen heuristics: [N1]–[N10] preserved and enhanced.
 
 struct LauncherPanelView: View {
+    @Environment(\.colorScheme) private var scheme
     @State var store: ProjectStore
     @State var fleet: FleetStore
     @State var promptStore: PromptStore
@@ -36,7 +40,6 @@ struct LauncherPanelView: View {
             }
         }
 
-        // Prompts sorted by useCount desc, limit 15
         let topPrompts = promptStore.prompts
             .sorted { $0.useCount > $1.useCount }
             .prefix(15)
@@ -44,7 +47,6 @@ struct LauncherPanelView: View {
             items.append(.prompt(prompt))
         }
 
-        // Show all non-archived projects sorted by activity
         let visible = store.projects
             .filter { $0.status != .archived }
             .sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
@@ -52,7 +54,6 @@ struct LauncherPanelView: View {
             items.append(.project(project))
         }
 
-        // History commands top 20 by frecency
         for cmd in historyStore.commands.prefix(20) {
             items.append(.historyCommand(cmd))
         }
@@ -73,35 +74,69 @@ struct LauncherPanelView: View {
     var body: some View {
         VStack(spacing: 0) {
             searchBar
-            Divider().opacity(0.3)
+            Divider().opacity(0.4)
 
             if isFirstLaunch && query.isEmpty {
-                welcomeState // [N10] Help and documentation
+                welcomeState
             } else if flatResults.isEmpty && !query.isEmpty {
-                errorRecoveryState // [N9] Help recognize/recover from errors
+                errorRecoveryState
             } else {
                 resultsList
             }
 
             if let toast {
-                toastBar(toast) // [N1] Visibility of system status
+                toastBar(toast)
             } else {
-                footerBar // [N6] Recognition, [N10] Help
+                footerBar
             }
         }
         .frame(width: 640)
-        .background(.ultraThickMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.4), radius: 30, y: 12)
+        .background(
+            ZStack {
+                // Layered background: material + subtle gradient for depth
+                RoundedRectangle(cornerRadius: Df.radiusLarge)
+                    .fill(.ultraThickMaterial)
+                RoundedRectangle(cornerRadius: Df.radiusLarge)
+                    .fill(
+                        LinearGradient(
+                            colors: [
+                                Df.surface(scheme).opacity(0.3),
+                                Df.canvas(scheme).opacity(0.1)
+                            ],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+            }
+        )
+        .clipShape(RoundedRectangle(cornerRadius: Df.radiusLarge))
+        .overlay(
+            // Skeuomorphic bevel — top highlight, bottom shadow
+            RoundedRectangle(cornerRadius: Df.radiusLarge)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [
+                            Df.bevelHighlight(scheme),
+                            .clear,
+                            Df.bevelShadow(scheme).opacity(0.2)
+                        ],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    ),
+                    lineWidth: 1
+                )
+        )
+        .shadow(color: .black.opacity(scheme == .dark ? 0.5 : 0.2), radius: 40, y: 16)
+        .shadow(color: .black.opacity(scheme == .dark ? 0.3 : 0.1), radius: 8, y: 4)
         .onAppear {
             searchFocused = true
             selectedIndex = 0
         }
         .onChange(of: query) { _, _ in
-            selectedIndex = 0 // [N3] User control — reset on new search
+            selectedIndex = 0
         }
         .onKeyPress(.escape) {
-            onDismiss() // [N3] User control and freedom
+            onDismiss()
             return .handled
         }
         .onKeyPress(.downArrow) {
@@ -113,58 +148,57 @@ struct LauncherPanelView: View {
             return .handled
         }
         .onKeyPress(.tab) {
-            jumpToNextCategory() // [N7] Flexibility — accelerator for power users
+            jumpToNextCategory()
             return .handled
         }
     }
 
-    // MARK: - Search Bar [N8] Aesthetic and minimalist
+    // MARK: - Search Bar
 
     private var searchBar: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: Df.space3) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 18, weight: .light))
-                .foregroundStyle(.white.opacity(0.3))
+                .foregroundStyle(Df.textTertiary(scheme))
 
-            // [N2] Match real world — "Jump to" matches mental model
-            TextField("", text: $query, prompt: Text("Jump to...").foregroundStyle(.white.opacity(0.25)))
+            TextField("", text: $query, prompt: Text("Jump to...").foregroundStyle(Df.textQuaternary(scheme)))
                 .textFieldStyle(.plain)
                 .font(.system(size: 20, weight: .light))
-                .foregroundStyle(.white)
+                .foregroundStyle(Df.textPrimary(scheme))
                 .focused($searchFocused)
                 .onSubmit { executeSelected() }
 
-            // [N3] User control — always clearable
             if !query.isEmpty {
                 Button(action: { query = "" }) {
                     Image(systemName: "xmark.circle.fill")
                         .font(.system(size: 14))
-                        .foregroundStyle(.white.opacity(0.2))
+                        .foregroundStyle(Df.textQuaternary(scheme))
                 }
                 .buttonStyle(.plain)
-                .help("Clear search") // [N10] Help
+                .help("Clear search")
             }
 
-            // [N1] System status — live result count
+            // Live result count
             Text("\(flatResults.count)")
-                .font(.system(size: 11, weight: .medium, design: .monospaced))
-                .foregroundStyle(.white.opacity(query.isEmpty ? 0.15 : 0.4))
+                .font(Df.monoSmallFont)
+                .foregroundStyle(Df.textTertiary(scheme).opacity(query.isEmpty ? 0.5 : 1.0))
                 .padding(.horizontal, 6)
                 .padding(.vertical, 2)
-                .background(.white.opacity(0.06))
-                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .background(Df.inset(scheme))
+                .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
 
-            // [N1] System status — fleet connection indicator
-            Circle()
-                .fill(fleet.isReachable ? .green : .red)
-                .frame(width: 6, height: 6)
-                .help(fleet.isReachable ? "Fleet connected" : "Fleet offline") // [N10]
+            // Fleet status dot
+            DfStatusDot(
+                color: fleet.isReachable ? Df.certain : Df.critical,
+                isLive: fleet.isReachable
+            )
+            .help(fleet.isReachable ? "Fleet connected" : "Fleet offline")
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.horizontal, Df.space5)
+        .padding(.vertical, Df.space4)
     }
 
-    // MARK: - Results [N4] Consistency, [N6] Recognition
+    // MARK: - Results
 
     private var resultsList: some View {
         ScrollViewReader { proxy in
@@ -172,13 +206,18 @@ struct LauncherPanelView: View {
                 LazyVStack(alignment: .leading, spacing: 0) {
                     ForEach(Array(grouped.enumerated()), id: \.0) { _, group in
                         let (category, items) = group
-                        categoryHeader(category, count: items.count)
+                        DfSectionHeader(title: category, count: items.count)
+                            .padding(.horizontal, Df.space5)
+                            .padding(.top, Df.space3)
+                            .padding(.bottom, Df.space1)
+
                         ForEach(items) { item in
                             let idx = flatResults.firstIndex(where: { $0.id == item.id }) ?? 0
-                            NielsenRow(
+                            LauncherRow(
                                 item: item,
                                 isSelected: idx == selectedIndex,
-                                isDisabled: isItemDisabled(item) // [N5] Error prevention
+                                isDisabled: isItemDisabled(item),
+                                scheme: scheme
                             )
                             .id(item.id)
                             .onTapGesture {
@@ -186,11 +225,11 @@ struct LauncherPanelView: View {
                                 selectedIndex = idx
                                 executeSelected()
                             }
-                            .help(tooltipFor(item)) // [N10] Help on every element
+                            .help(tooltipFor(item))
                         }
                     }
                 }
-                .padding(.vertical, 4)
+                .padding(.vertical, Df.space1)
             }
             .frame(minHeight: 100, maxHeight: 420)
             .onChange(of: selectedIndex) { _, newIndex in
@@ -203,34 +242,19 @@ struct LauncherPanelView: View {
         }
     }
 
-    private func categoryHeader(_ title: String, count: Int) -> some View {
-        HStack(spacing: 6) {
-            Text(title.uppercased())
-                .font(.system(size: 9, weight: .bold, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.25))
-            Rectangle().fill(.white.opacity(0.06)).frame(height: 1)
-            Text("\(count)")
-                .font(.system(size: 9, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.15))
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 10)
-        .padding(.bottom, 4)
-    }
-
-    // MARK: - Welcome State [N10] Help and documentation
+    // MARK: - Welcome State
 
     private var welcomeState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Df.space3) {
             Image(systemName: "rectangle.and.text.magnifyingglass")
                 .font(.system(size: 28))
-                .foregroundStyle(.white.opacity(0.2))
+                .foregroundStyle(Df.textQuaternary(scheme))
 
             Text("Deskfloor Launcher")
-                .font(.system(size: 14, weight: .semibold))
-                .foregroundStyle(.white.opacity(0.6))
+                .font(Df.titleFont)
+                .foregroundStyle(Df.textSecondary(scheme))
 
-            VStack(alignment: .leading, spacing: 6) {
+            VStack(alignment: .leading, spacing: Df.space2) {
                 hintRow("Type a host name", "to SSH in iTerm")
                 hintRow("Type a session name", "to attach tmux")
                 hintRow("Type a project name", "to open on GitHub")
@@ -243,12 +267,12 @@ struct LauncherPanelView: View {
                 isFirstLaunch = false
             }
             .buttonStyle(.plain)
-            .font(.system(size: 11, weight: .medium))
-            .foregroundStyle(.white.opacity(0.4))
-            .padding(.horizontal, 12)
-            .padding(.vertical, 4)
-            .background(.white.opacity(0.06))
-            .clipShape(RoundedRectangle(cornerRadius: 4))
+            .font(Df.captionFont)
+            .foregroundStyle(Df.textTertiary(scheme))
+            .padding(.horizontal, Df.space3)
+            .padding(.vertical, Df.space1)
+            .background(Df.surface(scheme))
+            .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
@@ -257,27 +281,26 @@ struct LauncherPanelView: View {
     private func hintRow(_ action: String, _ result: String) -> some View {
         HStack(spacing: 4) {
             Text(action)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(Df.captionFont)
+                .foregroundStyle(Df.textSecondary(scheme))
             Text(result)
                 .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.3))
+                .foregroundStyle(Df.textTertiary(scheme))
         }
     }
 
-    // MARK: - Error Recovery [N9]
+    // MARK: - Error Recovery
 
     private var errorRecoveryState: some View {
-        VStack(spacing: 12) {
+        VStack(spacing: Df.space3) {
             Image(systemName: "magnifyingglass")
                 .font(.system(size: 24))
-                .foregroundStyle(.white.opacity(0.15))
+                .foregroundStyle(Df.textQuaternary(scheme))
 
             Text("No results for \"\(query)\"")
-                .font(.system(size: 13))
-                .foregroundStyle(.white.opacity(0.4))
+                .font(Df.bodyFont)
+                .foregroundStyle(Df.textTertiary(scheme))
 
-            // [N9] Suggest recovery actions
             VStack(spacing: 6) {
                 if query.count > 3 {
                     Button("Try \"\(String(query.prefix(3)))\"") {
@@ -285,7 +308,7 @@ struct LauncherPanelView: View {
                     }
                     .buttonStyle(.plain)
                     .font(.system(size: 11))
-                    .foregroundStyle(.blue.opacity(0.7))
+                    .foregroundStyle(Df.info)
                 }
 
                 Button("Clear and browse all") {
@@ -293,62 +316,47 @@ struct LauncherPanelView: View {
                 }
                 .buttonStyle(.plain)
                 .font(.system(size: 11))
-                .foregroundStyle(.blue.opacity(0.7))
+                .foregroundStyle(Df.info)
             }
         }
         .frame(maxWidth: .infinity)
         .padding(.vertical, 30)
     }
 
-    // MARK: - Footer [N6] Recognition, [N10] Documentation
+    // MARK: - Footer
 
     private var footerBar: some View {
         HStack(spacing: 0) {
-            footerKey("Enter", label: actionLabelForSelected) // [N6] Show what Enter will do
-            footerKey("Tab", label: "next group")
-            footerKey("Esc", label: "close")
+            DfKeycap(key: "Enter", label: actionLabelForSelected)
+                .padding(.trailing, Df.space3)
+            DfKeycap(key: "Tab", label: "next group")
+                .padding(.trailing, Df.space3)
+            DfKeycap(key: "Esc", label: "close")
             Spacer()
-            // [N1] System status — data freshness
             if let update = fleet.lastUpdate {
                 Text(update, style: .relative)
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.2))
+                    .font(Df.monoSmallFont)
+                    .foregroundStyle(Df.textQuaternary(scheme))
             }
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 6)
-        .background(.white.opacity(0.02))
+        .padding(.horizontal, Df.space5)
+        .padding(.vertical, Df.space2)
+        .background(Df.canvas(scheme).opacity(0.5))
     }
 
-    // [N6] Dynamic label shows what Enter will do for current selection
     private var actionLabelForSelected: String {
         guard let item = flatResults[safe: selectedIndex] else { return "open" }
         switch item {
         case .host: return "ssh"
         case .session: return "attach"
-        case .project(let p): return p.localPath != nil ? "cd" : "open"
+        case .project(let p): return p.localPath != nil ? "claude" : "open"
         case .command: return "run"
         case .prompt: return "copy"
         case .historyCommand: return "run"
         }
     }
 
-    private func footerKey(_ key: String, label: String) -> some View {
-        HStack(spacing: 3) {
-            Text(key)
-                .font(.system(size: 9, weight: .medium, design: .monospaced))
-                .padding(.horizontal, 4)
-                .padding(.vertical, 1)
-                .background(.white.opacity(0.08))
-                .clipShape(RoundedRectangle(cornerRadius: 3))
-            Text(label)
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.2))
-        }
-        .padding(.trailing, 12)
-    }
-
-    // MARK: - Toast [N1] Visibility of system status
+    // MARK: - Toast
 
     private func toastBar(_ msg: ToastMessage) -> some View {
         HStack(spacing: 6) {
@@ -356,25 +364,23 @@ struct LauncherPanelView: View {
                 .foregroundStyle(msg.color)
                 .font(.system(size: 11))
             Text(msg.text)
-                .font(.system(size: 11, weight: .medium))
-                .foregroundStyle(.white.opacity(0.7))
+                .font(Df.captionFont)
+                .foregroundStyle(Df.textSecondary(scheme))
             Spacer()
         }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 6)
-        .background(msg.color.opacity(0.08))
+        .padding(.horizontal, Df.space5)
+        .padding(.vertical, Df.space2)
+        .background(msg.color.opacity(scheme == .dark ? 0.08 : 0.06))
         .transition(.move(edge: .bottom).combined(with: .opacity))
     }
 
     // MARK: - Logic
 
-    // [N5] Error prevention — disable unreachable hosts
     private func isItemDisabled(_ item: LauncherItem) -> Bool {
         if case .host(let h) = item, !h.reachable { return true }
         return false
     }
 
-    // [N10] Contextual help via tooltips
     private func tooltipFor(_ item: LauncherItem) -> String {
         switch item {
         case .host(let h):
@@ -385,7 +391,7 @@ struct LauncherPanelView: View {
             return "Attach tmux session \(s.name) on \(h.name)"
         case .project(let p):
             if p.localPath != nil {
-                return "Open \(p.name) in iTerm"
+                return "Open Claude session in \(p.name)"
             }
             return "Open \(p.repo ?? p.name) on GitHub"
         case .command(let label, _):
@@ -400,20 +406,18 @@ struct LauncherPanelView: View {
     private func executeSelected() {
         guard let item = flatResults[safe: selectedIndex] else { return }
         guard !isItemDisabled(item) else {
-            // [N9] Error feedback for disabled items
-            withAnimation { toast = ToastMessage(text: "Host unreachable", icon: "xmark.circle.fill", color: .red) }
+            withAnimation { toast = ToastMessage(text: "Host unreachable", icon: "xmark.circle.fill", color: Df.critical) }
             DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
                 withAnimation { toast = nil }
             }
             return
         }
 
-        // [N1] Confirm action with toast
         let msg: String
         switch item {
         case .host(let h): msg = "Connecting to \(h.name)..."
         case .session(let h, let s): msg = "Attaching \(h.name):\(s.name)..."
-        case .project(let p): msg = "Opening \(p.name)..."
+        case .project(let p): msg = "Claude session: \(p.name)..."
         case .command(let label, _): msg = "Running \(label)..."
         case .prompt(let p): msg = "Copied: \(p.title)"
         case .historyCommand(let h):
@@ -421,7 +425,7 @@ struct LauncherPanelView: View {
             msg = "Running \(short)..."
         }
         withAnimation(.easeIn(duration: 0.15)) {
-            toast = ToastMessage(text: msg, icon: "checkmark.circle.fill", color: .green)
+            toast = ToastMessage(text: msg, icon: "checkmark.circle.fill", color: Df.certain)
         }
 
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
@@ -442,94 +446,109 @@ struct LauncherPanelView: View {
     }
 }
 
-// MARK: - Row [N4] Consistency — same format for all item types
+// MARK: - Launcher Row
 
-struct NielsenRow: View {
+struct LauncherRow: View {
     let item: LauncherItem
     let isSelected: Bool
     let isDisabled: Bool
+    let scheme: ColorScheme
 
     var body: some View {
         HStack(spacing: 0) {
-            // [N4] Consistent icon treatment
+            // Icon badge — shape encodes provenance
             ZStack {
                 RoundedRectangle(cornerRadius: 6)
                     .fill(iconColor.opacity(isDisabled ? 0.05 : isSelected ? 0.2 : 0.1))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 6)
+                            .strokeBorder(
+                                iconColor.opacity(isSelected && !isDisabled ? 0.3 : 0),
+                                lineWidth: 1
+                            )
+                    )
                     .frame(width: 28, height: 28)
                 Image(systemName: iconName)
                     .font(.system(size: 12, weight: .medium))
-                    .foregroundStyle(isDisabled ? .gray : iconColor)
+                    .foregroundStyle(isDisabled ? Df.textQuaternary(scheme) : iconColor)
             }
-            .padding(.trailing, 10)
+            .padding(.trailing, Df.space3)
 
             VStack(alignment: .leading, spacing: 1) {
                 Text(item.title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
-                    .foregroundStyle(isDisabled ? .white.opacity(0.3) : .white)
+                    .font(isSelected ? Df.headlineFont : Df.bodyFont)
+                    .foregroundStyle(
+                        isDisabled
+                            ? Df.textTertiary(scheme)
+                            : Df.textPrimary(scheme)
+                    )
                     .lineLimit(1)
-                    .strikethrough(isDisabled) // [N5] Visual signal for disabled
+                    .strikethrough(isDisabled)
 
                 Text(item.subtitle)
-                    .font(.system(size: 10, design: .monospaced))
-                    .foregroundStyle(.white.opacity(isDisabled ? 0.2 : 0.4))
+                    .font(Df.monoSmallFont)
+                    .foregroundStyle(
+                        isDisabled
+                            ? Df.textQuaternary(scheme)
+                            : Df.textTertiary(scheme)
+                    )
                     .lineLimit(1)
             }
 
             Spacer()
 
-            // [N6] Recognition — show what action will happen
+            // Action hint — what Enter will do
             if isSelected && !isDisabled {
                 Text(actionHint)
-                    .font(.system(size: 9, weight: .medium, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.3))
+                    .font(Df.monoSmallFont)
+                    .foregroundStyle(Df.textTertiary(scheme))
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(.white.opacity(0.06))
-                    .clipShape(RoundedRectangle(cornerRadius: 4))
+                    .background(Df.inset(scheme))
+                    .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
             }
 
-            // [N5] Warning for disabled items
             if isDisabled {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .font(.system(size: 10))
-                    .foregroundStyle(.orange.opacity(0.6))
+                    .foregroundStyle(Df.uncertain.opacity(0.7))
             }
 
-            // [N1] Inline status for hosts
+            // Host metrics — epistemic: live data inline
             if case .host(let h) = item, !isDisabled {
-                HStack(spacing: 8) {
-                    metricPill("\(String(format: "%.0f", h.load))",
-                               color: h.load > 4 ? .red : h.load > 2 ? .orange : .green)
-                    metricPill("\(h.diskPercent)%",
-                               color: h.diskPercent >= 85 ? .orange : .green)
+                HStack(spacing: Df.space2) {
+                    DfPill(
+                        text: String(format: "%.0f", h.load),
+                        color: h.load > 4 ? Df.critical : h.load > 2 ? Df.uncertain : Df.certain
+                    )
+                    DfPill(
+                        text: "\(h.diskPercent)%",
+                        color: h.diskPercent >= 85 ? Df.uncertain : Df.certain
+                    )
                     if h.claudeCount > 0 {
-                        metricPill("\(h.claudeCount)cl", color: .blue)
+                        DfPill(text: "\(h.claudeCount)cl", color: Df.agent)
                     }
                 }
             }
         }
-        .padding(.horizontal, 20)
+        .padding(.horizontal, Df.space5)
         .padding(.vertical, 7)
-        .background(isSelected ? Color.white.opacity(0.07) : .clear)
+        .background(
+            isSelected
+                ? RoundedRectangle(cornerRadius: Df.radiusSmall + 2)
+                    .fill(Df.elevated(scheme).opacity(0.8))
+                    .shadow(color: Df.bevelShadow(scheme).opacity(0.2), radius: 2, y: 1)
+                : nil
+        )
         .contentShape(Rectangle())
-        .opacity(isDisabled ? 0.6 : 1.0) // [N5] Dimmed disabled items
-    }
-
-    private func metricPill(_ text: String, color: Color) -> some View {
-        Text(text)
-            .font(.system(size: 9, weight: .medium, design: .monospaced))
-            .foregroundStyle(color.opacity(0.8))
-            .padding(.horizontal, 5)
-            .padding(.vertical, 1)
-            .background(color.opacity(0.1))
-            .clipShape(RoundedRectangle(cornerRadius: 3))
+        .opacity(isDisabled ? 0.6 : 1.0)
     }
 
     private var actionHint: String {
         switch item {
         case .host: "SSH"
         case .session: "ATTACH"
-        case .project(let p): p.localPath != nil ? "CD" : "OPEN"
+        case .project(let p): p.localPath != nil ? "CLAUDE" : "OPEN"
         case .command: "RUN"
         case .prompt: "COPY"
         case .historyCommand: "RUN"
@@ -549,12 +568,12 @@ struct NielsenRow: View {
 
     private var iconColor: Color {
         switch item {
-        case .host(let h): h.reachable ? .green : .red
-        case .session(_, let s): s.attached ? .blue : .gray
+        case .host(let h): h.reachable ? Df.certain : Df.critical
+        case .session(_, let s): s.attached ? Df.info : Df.textTertiary(scheme)
         case .project(let p): p.perspective.color
-        case .command: .orange
-        case .prompt: .purple
-        case .historyCommand: .cyan
+        case .command: Df.uncertain
+        case .prompt: Df.agent
+        case .historyCommand: Color(red: 0.3, green: 0.7, blue: 0.8)
         }
     }
 }

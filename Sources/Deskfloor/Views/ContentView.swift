@@ -37,6 +37,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
+    @Environment(\.colorScheme) private var scheme
     @State var store: ProjectStore
     @State var fleet: FleetStore = FleetStore()
     @State var skein: SkeinStore = SkeinStore()
@@ -49,7 +50,7 @@ struct ContentView: View {
     @State private var handoffOnly = false
     @State private var encumberedOnly = false
     @State private var selectedProject: Project?
-    @State private var selectedProjects: Set<UUID> = []  // multi-select
+    @State private var selectedProjects: Set<UUID> = []
     @State private var showDispatch = false
     @State private var showNewProject = false
     @State private var editingProject = Project.blank()
@@ -83,10 +84,9 @@ struct ContentView: View {
         } detail: {
             VStack(spacing: 0) {
                 toolbar
-                Divider().background(Color.white.opacity(0.1))
+                Divider().opacity(0.5)
                 mainContent
-                Divider().background(Color.white.opacity(0.1))
-                // Selection bar (appears when projects are multi-selected)
+                Divider().opacity(0.5)
                 if !selectedProjects.isEmpty {
                     selectionBar
                 }
@@ -98,7 +98,7 @@ struct ContentView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .preferredColorScheme(.dark)
+        .background(Df.canvas(scheme))
         .sheet(isPresented: $showDispatch) { dispatchPanel }
         .sheet(item: $selectedProject) { project in
             ProjectDetailSheet(
@@ -107,6 +107,9 @@ struct ContentView: View {
                     set: { selectedProject = $0 }
                 ),
                 isNew: false,
+                skein: skein,
+                fleet: fleet,
+                dataBus: dataBus,
                 onSave: { updated in
                     store.updateProject(updated)
                     selectedProject = nil
@@ -185,30 +188,44 @@ struct ContentView: View {
         )
     }
 
+    // MARK: - Toolbar
+
     private var toolbar: some View {
-        HStack(spacing: 12) {
-            // View mode picker
+        HStack(spacing: Df.space3) {
+            // View mode picker — skeuomorphic segmented control
             HStack(spacing: 2) {
                 ForEach(ViewMode.allCases) { mode in
                     Button(action: { viewMode = mode }) {
                         Image(systemName: mode.icon)
                             .font(.system(size: 12))
-                            .foregroundStyle(viewMode == mode ? .white : .white.opacity(0.3))
+                            .foregroundStyle(
+                                viewMode == mode
+                                    ? Df.textPrimary(scheme)
+                                    : Df.textTertiary(scheme)
+                            )
                             .frame(width: 28, height: 24)
-                            .background(viewMode == mode ? Color.white.opacity(0.1) : .clear)
-                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .background(
+                                viewMode == mode
+                                    ? Df.elevated(scheme)
+                                    : .clear
+                            )
+                            .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
+                            .shadow(
+                                color: viewMode == mode ? Df.bevelShadow(scheme) : .clear,
+                                radius: 2, y: 1
+                            )
                     }
                     .buttonStyle(.plain)
                     .help(mode.label)
                 }
             }
             .padding(2)
-            .background(Color.white.opacity(0.04))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
+            .background(Df.inset(scheme))
+            .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall + 2))
 
             Text(viewMode.label)
-                .font(.system(size: 12, weight: .medium))
-                .foregroundStyle(.white.opacity(0.5))
+                .font(Df.captionFont)
+                .foregroundStyle(Df.textSecondary(scheme))
 
             Picker("Sort", selection: Binding(
                 get: { store.sortOrder },
@@ -236,52 +253,23 @@ struct ContentView: View {
                         .frame(width: 16, height: 16)
                     if store.scanProgress.total > 0 {
                         Text("\(store.scanProgress.done)/\(store.scanProgress.total)")
-                            .font(.system(size: 9, design: .monospaced))
-                            .foregroundStyle(.white.opacity(0.4))
+                            .font(Df.monoSmallFont)
+                            .foregroundStyle(Df.textTertiary(scheme))
                     }
                 }
             }
 
-            Button(action: {
+            toolbarButton("Scan", icon: "folder.badge.gearshape", disabled: store.isScanning) {
                 store.scanLocalProjects()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "folder.badge.gearshape")
-                        .font(.system(size: 11))
-                    Text("Scan")
-                        .font(.system(size: 11))
-                }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.5))
-            .disabled(store.isScanning)
-            .help("Scan ~/Nissan/ for local projects")
 
-            Button(action: {
+            toolbarButton("Refresh", icon: "arrow.clockwise") {
                 store.refreshGitInfo()
-            }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "arrow.clockwise")
-                        .font(.system(size: 11))
-                    Text("Refresh")
-                        .font(.system(size: 11))
-                }
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.5))
-            .help("Refresh git status for all projects")
 
-            Button(action: importFromGitHub) {
-                HStack(spacing: 4) {
-                    Image(systemName: "square.and.arrow.down")
-                        .font(.system(size: 11))
-                    Text("Import")
-                        .font(.system(size: 11))
-                }
+            toolbarButton("Import", icon: "square.and.arrow.down", disabled: importInProgress) {
+                importFromGitHub()
             }
-            .buttonStyle(.plain)
-            .foregroundStyle(.white.opacity(0.5))
-            .disabled(importInProgress)
 
             Button(action: {
                 editingProject = Project.blank()
@@ -295,16 +283,32 @@ struct ContentView: View {
                 }
             }
             .buttonStyle(.borderedProminent)
-            .tint(Color(red: 0.3, green: 0.7, blue: 0.5).opacity(0.8))
+            .tint(Df.accent)
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 8)
-        .background(Color(red: 0.08, green: 0.08, blue: 0.1))
+        .padding(.horizontal, Df.space4)
+        .padding(.vertical, Df.space2)
+        .background(Df.surface(scheme))
     }
+
+    private func toolbarButton(_ label: String, icon: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            HStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 11))
+                Text(label)
+                    .font(.system(size: 11))
+            }
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Df.textSecondary(scheme))
+        .disabled(disabled)
+        .help(label)
+    }
+
+    // MARK: - Main Content
 
     @ViewBuilder
     private var mainContent: some View {
-        // ZStack keeps all views alive — switching is instant (no teardown/rebuild)
         ZStack {
             BoardView(
                 store: store,
@@ -351,8 +355,10 @@ struct ContentView: View {
         }
     }
 
+    // MARK: - Fleet Bar
+
     private var fleetBar: some View {
-        HStack(spacing: 16) {
+        HStack(spacing: Df.space4) {
             if fleet.isReachable {
                 ForEach(fleet.hosts) { host in
                     Button(action: { DeskfloorApp.sshJump(host: host.name) }) {
@@ -360,18 +366,18 @@ struct ContentView: View {
                             Text(host.sigil)
                                 .font(.system(size: 10))
                             Text(host.name)
-                                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                                .foregroundStyle(.white.opacity(0.7))
-                            Text("\(String(format: "%.0f", host.load))")
-                                .font(.system(size: 9, design: .monospaced))
-                                .foregroundStyle(host.load > 4 ? .red : .white.opacity(0.4))
-                            Text("\(host.diskPercent)%")
-                                .font(.system(size: 9, design: .monospaced))
-                                .foregroundStyle(host.diskPercent >= 85 ? .orange : .white.opacity(0.4))
+                                .font(Df.monoSmallFont)
+                                .foregroundStyle(Df.textSecondary(scheme))
+                            DfPill(
+                                text: String(format: "%.0f", host.load),
+                                color: host.load > 4 ? Df.critical : host.load > 2 ? Df.uncertain : Df.certain
+                            )
+                            DfPill(
+                                text: "\(host.diskPercent)%",
+                                color: host.diskPercent >= 85 ? Df.uncertain : Df.certain
+                            )
                             if host.claudeCount > 0 {
-                                Text("\(host.claudeCount)cl")
-                                    .font(.system(size: 9, design: .monospaced))
-                                    .foregroundStyle(.blue.opacity(0.7))
+                                DfPill(text: "\(host.claudeCount)cl", color: Df.agent)
                             }
                         }
                     }
@@ -380,41 +386,41 @@ struct ContentView: View {
                 }
             } else {
                 Text("Fleet offline")
-                    .font(.system(size: 10))
-                    .foregroundStyle(.white.opacity(0.3))
+                    .font(Df.captionFont)
+                    .foregroundStyle(Df.textTertiary(scheme))
             }
 
             Spacer()
 
             if let update = fleet.lastUpdate {
                 Text(update, style: .relative)
-                    .font(.system(size: 9, design: .monospaced))
-                    .foregroundStyle(.white.opacity(0.2))
+                    .font(Df.monoSmallFont)
+                    .foregroundStyle(Df.textQuaternary(scheme))
             }
 
             Text("Ctrl+Space: Launcher")
-                .font(.system(size: 9))
-                .foregroundStyle(.white.opacity(0.2))
+                .font(Df.monoSmallFont)
+                .foregroundStyle(Df.textQuaternary(scheme))
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, Df.space4)
         .padding(.vertical, 5)
-        .background(Color(red: 0.06, green: 0.06, blue: 0.08))
+        .background(Df.surface(scheme).opacity(0.8))
     }
 
-    // MARK: - Selection Bar (multi-select actions)
+    // MARK: - Selection Bar
 
     private var selectionBar: some View {
         let selected = store.projects.filter { selectedProjects.contains($0.id) }
-        return HStack(spacing: 12) {
+        return HStack(spacing: Df.space3) {
             Text("\(selected.count) selected")
-                .font(.system(size: 11, weight: .semibold))
-                .foregroundStyle(.white)
+                .font(Df.headlineFont)
+                .foregroundStyle(Df.textPrimary(scheme))
 
             Button("Dispatch to Claude Code") {
                 showDispatch = true
             }
             .buttonStyle(.borderedProminent)
-            .tint(.blue.opacity(0.8))
+            .tint(Df.agent)
             .controlSize(.small)
 
             Menu("Set Status") {
@@ -437,18 +443,18 @@ struct ContentView: View {
             }
             .buttonStyle(.plain)
             .font(.system(size: 11))
-            .foregroundStyle(.white.opacity(0.5))
+            .foregroundStyle(Df.textSecondary(scheme))
 
             Spacer()
 
             Button("Clear") { selectedProjects.removeAll() }
                 .buttonStyle(.plain)
                 .font(.system(size: 11))
-                .foregroundStyle(.white.opacity(0.4))
+                .foregroundStyle(Df.textTertiary(scheme))
         }
-        .padding(.horizontal, 16)
-        .padding(.vertical, 6)
-        .background(Color.blue.opacity(0.1))
+        .padding(.horizontal, Df.space4)
+        .padding(.vertical, Df.space2)
+        .background(Df.agent.opacity(scheme == .dark ? 0.08 : 0.06))
     }
 
     // MARK: - Dispatch Panel

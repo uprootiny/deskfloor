@@ -22,8 +22,8 @@ cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
     <key>CFBundleIdentifier</key><string>art.dissemblage.deskfloor</string>
     <key>CFBundleName</key><string>Deskfloor</string>
     <key>CFBundleDisplayName</key><string>Deskfloor</string>
-    <key>CFBundleVersion</key><string>0.2.0</string>
-    <key>CFBundleShortVersionString</key><string>0.2.0</string>
+    <key>CFBundleVersion</key><string>0.3.0</string>
+    <key>CFBundleShortVersionString</key><string>0.3.0</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>NSAppleEventsUsageDescription</key><string>Deskfloor needs to control iTerm for SSH connections.</string>
     <key>NSHighResolutionCapable</key><true/>

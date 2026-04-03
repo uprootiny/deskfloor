@@ -88,6 +88,12 @@ struct Project: Codable, Identifiable, Hashable {
     var dirtyFiles: Int?
     var projectType: String?
 
+    // Deployment — nil means not configured
+    var deployHost: String?       // fleet host name, e.g. "hyle"
+    var deployPath: String?       // remote path, e.g. "/opt/myapp"
+    var deployCommand: String?    // e.g. "docker compose up -d"
+    var deployURL: String?        // live URL, e.g. "https://myapp.example.com"
+
     static func blank() -> Project {
         Project(
             name: "",
@@ -110,7 +116,11 @@ struct Project: Codable, Identifiable, Hashable {
             lastCommitAuthor: nil,
             gitBranch: nil,
             dirtyFiles: nil,
-            projectType: nil
+            projectType: nil,
+            deployHost: nil,
+            deployPath: nil,
+            deployCommand: nil,
+            deployURL: nil
         )
     }
 }
