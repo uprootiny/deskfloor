@@ -44,7 +44,18 @@ enum LauncherItem: Identifiable {
             if let type = p.projectType { parts.append(type) }
             if let branch = p.gitBranch { parts.append(branch) }
             if let dirty = p.dirtyFiles, dirty > 0 { parts.append("\(dirty) changed") }
-            if p.commitCount > 0 { parts.append("\(p.commitCount) commits") }
+            if p.commitCount > 0 { parts.append("\(p.commitCount)★") }
+            // Activity recency
+            if let last = p.lastActivity {
+                let days = Int(-last.timeIntervalSinceNow / 86400)
+                if days == 0 { parts.append("today") }
+                else if days == 1 { parts.append("yesterday") }
+                else if days < 30 { parts.append("\(days)d ago") }
+                else { parts.append("\(days/30)mo ago") }
+            }
+            // Where it lives
+            if p.localPath != nil { parts.append("local") }
+            else if p.repo != nil { parts.append("github") }
             if parts.isEmpty { return p.description }
             return parts.joined(separator: " · ")
         case .command(_, let cmd):
@@ -73,7 +84,8 @@ enum LauncherItem: Identifiable {
         switch self {
         case .host(let h): return [h.name, "ssh", "server"]
         case .session(let h, let s): return [h.name, s.name, "tmux"]
-        case .project(let p): return [p.name] + p.tags + [p.projectType, p.gitBranch].compactMap { $0 }
+        case .project(let p):
+            return [p.name, p.description, p.repo, p.projectType, p.gitBranch].compactMap { $0 } + p.tags + p.connections
         case .command(let label, _): return label.split(separator: " ").map(String.init)
         case .prompt(let p): return p.tags
         case .historyCommand(let h):
