@@ -39,7 +39,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
 struct ContentView: View {
     @Environment(\.colorScheme) private var scheme
     @State var store: ProjectStore
-    @State var fleet: FleetStore = FleetStore()
+    @State var fleet: FleetStore
     @State var skein: SkeinStore = SkeinStore()
     @State var dataBus: DataBus = DataBus()
     @State private var viewMode: ViewMode = .board

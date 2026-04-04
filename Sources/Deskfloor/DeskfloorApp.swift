@@ -13,7 +13,7 @@ struct DeskfloorApp: App {
     var body: some Scene {
         // Main dashboard window
         WindowGroup("Deskfloor", id: "dashboard") {
-            ContentView(store: store)
+            ContentView(store: store, fleet: fleet)
                 .frame(minWidth: 900, minHeight: 600)
                 .onAppear {
                     // Wire stores to AppDelegate for launcher access

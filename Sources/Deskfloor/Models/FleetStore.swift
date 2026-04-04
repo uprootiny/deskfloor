@@ -103,8 +103,10 @@ final class FleetStore {
                     self.hosts = finalHosts
                     self.lastUpdate = Date()
                     self.isReachable = true
+                    NSLog("[FleetStore] Polled \(finalHosts.count) hosts")
                 }
             } catch {
+                NSLog("[FleetStore] Poll failed: \(error)")
                 await MainActor.run {
                     self.isReachable = false
                 }
