@@ -20,7 +20,7 @@ final class DataBus {
     // Polling state
     var isPolling = false
     private var pollTimer: Timer?
-    private let agentSlackBase = "http://173.212.203.211:9400"
+    private let agentSlackBase = ProcessInfo.processInfo.environment["AGENTSLACK_URL"] ?? "http://173.212.203.211:9400"
 
     struct HostSnapshot: Identifiable {
         var id: String { name }

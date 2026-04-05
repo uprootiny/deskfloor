@@ -7,7 +7,7 @@ final class FleetStore {
     var lastUpdate: Date?
     var isReachable = false
 
-    private let baseURL = "http://173.212.203.211:9400"
+    private let baseURL = ProcessInfo.processInfo.environment["AGENTSLACK_URL"] ?? "http://173.212.203.211:9400"
     private var timer: Timer?
 
     struct FleetHost: Identifiable {
