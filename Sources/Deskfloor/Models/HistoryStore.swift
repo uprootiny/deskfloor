@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Reads ~/.zsh_history, parses extended format, ranks by frecency.
 @Observable
@@ -84,7 +85,7 @@ final class HistoryStore {
             .map { $0 }
 
         } catch {
-            NSLog("[HistoryStore] Failed to read zsh_history: \(error)")
+            Logger.deskfloor.error("HistoryStore: failed to read zsh_history: \(error)")
         }
     }
 

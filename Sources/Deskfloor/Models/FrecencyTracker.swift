@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 @Observable
 final class FrecencyTracker {
@@ -59,7 +60,7 @@ final class FrecencyTracker {
             let list = try decoder.decode([FrecencyRecord].self, from: data)
             records = Dictionary(uniqueKeysWithValues: list.map { ($0.itemID, $0) })
         } catch {
-            print("Failed to load frecency data: \(error)")
+            Logger.deskfloor.error("Failed to load frecency data: \(error)")
         }
     }
 
@@ -71,7 +72,7 @@ final class FrecencyTracker {
             let data = try encoder.encode(Array(records.values))
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            print("Failed to save frecency data: \(error)")
+            Logger.deskfloor.error("Failed to save frecency data: \(error)")
         }
     }
 }

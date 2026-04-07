@@ -1,5 +1,5 @@
 import Foundation
-import SwiftUI
+import os
 
 @Observable
 final class SurfaceStore {
@@ -393,6 +393,7 @@ final class SurfaceStore {
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             return String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         } catch {
+            Logger.deskfloor.error("Shell command failed: \(error)")
             return ""
         }
     }

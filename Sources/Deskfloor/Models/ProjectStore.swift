@@ -1,5 +1,5 @@
 import Foundation
-import SwiftUI
+import os
 
 enum SortOrder: String, CaseIterable, Identifiable {
     case name, lastActivity, startDate, commitCount, status
@@ -61,7 +61,7 @@ final class ProjectStore {
             decoder.dateDecodingStrategy = .iso8601
             projects = try decoder.decode([Project].self, from: data)
         } catch {
-            print("Failed to load projects: \(error)")
+            Logger.deskfloor.error("Failed to load projects: \(error)")
         }
     }
 
@@ -400,7 +400,7 @@ final class ProjectStore {
             let data = try encoder.encode(projects)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            print("Failed to save projects: \(error)")
+            Logger.deskfloor.error("Failed to save projects: \(error)")
         }
     }
 

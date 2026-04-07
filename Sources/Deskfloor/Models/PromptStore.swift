@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// JSON-backed prompt library at ~/.deskfloor/prompts.json.
 @Observable
@@ -36,7 +37,7 @@ final class PromptStore {
             decoder.dateDecodingStrategy = .iso8601
             prompts = try decoder.decode([Prompt].self, from: data)
         } catch {
-            NSLog("[PromptStore] Failed to load: \(error)")
+            Logger.deskfloor.error("PromptStore: failed to load: \(error)")
             seedDefaults()
         }
     }
@@ -49,7 +50,7 @@ final class PromptStore {
             let data = try encoder.encode(prompts)
             try data.write(to: fileURL, options: .atomic)
         } catch {
-            NSLog("[PromptStore] Failed to save: \(error)")
+            Logger.deskfloor.error("PromptStore: failed to save: \(error)")
         }
     }
 

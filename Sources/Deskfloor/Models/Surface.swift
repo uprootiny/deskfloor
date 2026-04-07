@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 enum SurfaceKind: String, CaseIterable, Codable {
     case terminal
@@ -25,16 +24,6 @@ enum SurfaceKind: String, CaseIterable, Codable {
         case .port:       return "Port"
         case .claudeCode: return "Claude Code"
         case .browserTab: return "Browser"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .terminal:   return Color(red: 0.30, green: 0.72, blue: 0.50)
-        case .tmux:       return Color(red: 0.85, green: 0.72, blue: 0.30)
-        case .port:       return Color(red: 0.92, green: 0.55, blue: 0.25)
-        case .claudeCode: return Color(red: 0.55, green: 0.45, blue: 0.85)
-        case .browserTab: return Color(red: 0.40, green: 0.62, blue: 0.90)
         }
     }
 }

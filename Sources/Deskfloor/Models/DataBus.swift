@@ -1,5 +1,5 @@
 import Foundation
-import SwiftUI
+import os
 
 /// Central observable data store. All background pollers write here.
 /// All views read from here. Single source of truth.
@@ -125,7 +125,7 @@ final class DataBus {
                 self.lastFleetPoll = Date()
             }
         } catch {
-            // Fleet unreachable — don't clear existing data
+            Logger.deskfloor.error("Fleet poll failed: \(error)")
         }
     }
 
@@ -197,7 +197,7 @@ final class DataBus {
                     branch: branch, updatedAt: updatedAt, url: urlStr
                 ))
             }
-            do { try process.run() } catch { continuation.resume(returning: nil) }
+            do { try process.run() } catch { Logger.deskfloor.error("CI fetch failed: \(error)"); continuation.resume(returning: nil) }
         }
     }
 
@@ -351,13 +351,6 @@ struct AttentionItem: Identifiable {
             }
         }
 
-        var color: Color {
-            switch self {
-            case .critical: .red
-            case .warning: .orange
-            case .info: .blue
-            }
-        }
     }
 
     enum Action {

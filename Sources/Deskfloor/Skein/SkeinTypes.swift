@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 // MARK: - Core Skein Types
 
@@ -70,18 +69,6 @@ enum SessionStatus: String, Codable, CaseIterable, Identifiable {
         case .crashed: "Crashed"
         case .hypothetical: "Hypothetical"
         case .archived: "Archived"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .live: .green
-        case .completed: .blue
-        case .paused: .yellow
-        case .abandoned: .orange
-        case .crashed: .red
-        case .hypothetical: .purple
-        case .archived: .gray
         }
     }
 
@@ -268,18 +255,4 @@ struct Composition: Identifiable, Codable {
 enum ThreadColor: String, Codable, CaseIterable {
     case red, orange, amber, green, teal, blue, indigo, purple, pink, gray
 
-    var swiftUIColor: Color {
-        switch self {
-        case .red: .red
-        case .orange: .orange
-        case .amber: Color(red: 0.85, green: 0.75, blue: 0.3)
-        case .green: .green
-        case .teal: .teal
-        case .blue: .blue
-        case .indigo: .indigo
-        case .purple: .purple
-        case .pink: .pink
-        case .gray: .gray
-        }
-    }
 }

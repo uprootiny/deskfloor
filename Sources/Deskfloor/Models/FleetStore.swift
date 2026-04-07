@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Live fleet data from AgentSlack API.
 @Observable
@@ -106,7 +107,7 @@ final class FleetStore {
                     NSLog("[FleetStore] Polled \(finalHosts.count) hosts")
                 }
             } catch {
-                NSLog("[FleetStore] Poll failed: \(error)")
+                Logger.deskfloor.error("FleetStore: poll failed: \(error)")
                 await MainActor.run {
                     self.isReachable = false
                 }

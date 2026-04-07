@@ -1,5 +1,4 @@
 import Foundation
-import SwiftUI
 
 enum Status: String, Codable, CaseIterable, Identifiable {
     case active
@@ -17,16 +16,6 @@ enum Status: String, Codable, CaseIterable, Identifiable {
         case .handoff: "Handoff"
         case .archived: "Archived"
         case .idea: "Idea"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .active: Color(red: 0.3, green: 0.7, blue: 0.5)
-        case .paused: Color(red: 0.85, green: 0.75, blue: 0.3)
-        case .handoff: Color(red: 0.4, green: 0.6, blue: 0.9)
-        case .archived: Color(red: 0.5, green: 0.5, blue: 0.5)
-        case .idea: Color(red: 0.7, green: 0.5, blue: 0.8)
         }
     }
 }
@@ -49,17 +38,6 @@ enum Perspective: String, Codable, CaseIterable, Identifiable {
         case .creative: "Creative"
         case .ops: "Ops"
         case .personal: "Personal"
-        }
-    }
-
-    var color: Color {
-        switch self {
-        case .infrastructure: Color(red: 0.3, green: 0.7, blue: 0.5)
-        case .legal: Color(red: 0.85, green: 0.75, blue: 0.3)
-        case .ml: Color(red: 0.3, green: 0.7, blue: 0.7)
-        case .creative: Color(red: 0.7, green: 0.5, blue: 0.8)
-        case .ops: Color(red: 0.4, green: 0.6, blue: 0.9)
-        case .personal: Color(red: 0.6, green: 0.55, blue: 0.5)
         }
     }
 }
