@@ -7,7 +7,7 @@ let package = Package(
         .macOS(.v14)
     ],
     dependencies: [
-        .package(path: "../nlp-engine"),
+        .package(url: "https://github.com/uprootiny/nlp-engine.git", branch: "main"),
     ],
     targets: [
         .executableTarget(

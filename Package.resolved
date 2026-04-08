@@ -1,0 +1,15 @@
+{
+  "originHash" : "7625ecfe072a270ce494948077b8c23bccc05db46501c47d6461028e3f16604e",
+  "pins" : [
+    {
+      "identity" : "nlp-engine",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/uprootiny/nlp-engine.git",
+      "state" : {
+        "branch" : "main",
+        "revision" : "3a1892fc030a41459daa62e4fdb3d2728f9f35fd"
+      }
+    }
+  ],
+  "version" : 3
+}
