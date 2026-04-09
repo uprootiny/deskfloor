@@ -44,14 +44,14 @@ struct BoardView: View {
                             project: project,
                             isSelected: selectedProjects.contains(project.id)
                         ) {
-                            selectedProject = project
-                        }
-                        .onTapGesture {
+                            // Single tap handler — check for Cmd modifier
                             if NSEvent.modifierFlags.contains(.command) {
-                                if selectedProjects.contains(project.id) {
-                                    selectedProjects.remove(project.id)
-                                } else {
-                                    selectedProjects.insert(project.id)
+                                withAnimation(.easeInOut(duration: 0.15)) {
+                                    if selectedProjects.contains(project.id) {
+                                        selectedProjects.remove(project.id)
+                                    } else {
+                                        selectedProjects.insert(project.id)
+                                    }
                                 }
                             } else {
                                 selectedProject = project
