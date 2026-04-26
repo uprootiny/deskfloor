@@ -25,7 +25,7 @@ cat > "$APP_DIR/Contents/Info.plist" << 'PLIST'
     <key>CFBundleVersion</key><string>0.3.0</string>
     <key>CFBundleShortVersionString</key><string>0.3.0</string>
     <key>CFBundlePackageType</key><string>APPL</string>
-    <key>NSAppleEventsUsageDescription</key><string>Deskfloor needs to control iTerm for SSH connections.</string>
+    <key>NSAppleEventsUsageDescription</key><string>Deskfloor needs to control terminal apps (Ghostty / iTerm / Terminal) to spawn Claude sessions and SSH connections.</string>
     <key>NSHighResolutionCapable</key><true/>
 </dict>
 </plist>

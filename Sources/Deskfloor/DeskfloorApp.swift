@@ -105,9 +105,9 @@ struct DeskfloorApp: App {
     static func sshJump(host: String, session: String? = nil) {
         let cmd: String
         if let session, session != "main" {
-            cmd = "ssh -o RemoteCommand=none -t \(host) tmux attach-session -t \(session)"
+            cmd = "ssh -o RemoteCommand=none -t \(Sh.q(host)) tmux attach-session -t \(Sh.q(session))"
         } else {
-            cmd = "ssh \(host)"
+            cmd = "ssh \(Sh.q(host))"
         }
         TerminalLauncher.run(cmd)
     }
@@ -322,4 +322,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 extension Notification.Name {
     static let importFromGitHub = Notification.Name("importFromGitHub")
     static let projectStatusChange = Notification.Name("projectStatusChange")
+    static let navigateToProject = Notification.Name("navigateToProject")
 }

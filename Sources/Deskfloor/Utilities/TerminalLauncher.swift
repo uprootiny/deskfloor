@@ -103,8 +103,14 @@ enum TerminalLauncher {
 
     // MARK: - Helpers
 
+    /// Single-quote a string for safe shell embedding. Embedded single quotes
+    /// are escaped via the close-quote/escaped-quote/open-quote idiom.
     static func shellEscape(_ s: String) -> String {
-        // Single-quote, escape any embedded single quotes by closing/reopening.
         "'" + s.replacingOccurrences(of: "'", with: "'\\''") + "'"
     }
+}
+
+/// Top-level alias so callsites read tersely: `Sh.q(host)`.
+enum Sh {
+    static func q(_ s: String) -> String { TerminalLauncher.shellEscape(s) }
 }

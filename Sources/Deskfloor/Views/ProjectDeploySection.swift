@@ -34,14 +34,37 @@ struct ProjectDeploySection: View {
 
     private var actionButtons: some View {
         HStack(spacing: Df.space2) {
-            if hasDeploy, let cmd = project.deployCommand {
+            if let host = project.deployHost, let cmd = project.deployCommand {
                 ProjectActionBtn("paperplane.fill", "Deploy", .accent) {
-                    let host = project.deployHost!
-                    let remote = project.deployPath.map { "cd \($0) && " } ?? ""
-                    DeskfloorApp.openInITerm("ssh \(host) '\(remote)\(cmd)'")
+                    let remote = project.deployPath.map { "cd \(Sh.q($0)) && " } ?? ""
+                    let inner = "\(remote)\(cmd)"
+                    TerminalLauncher.run("ssh \(Sh.q(host)) \(Sh.q(inner))")
+                    project.lastDeployAt = Date()
                 }
             } else {
                 ProjectDisabledAction("paperplane.fill", "Deploy", hint: hasDeploy ? "set command" : "configure below")
+            }
+
+            if let host = project.deployHost, let cmd = project.restartCommand ?? project.deployCommand {
+                ProjectActionBtn("arrow.clockwise.circle", "Restart", .secondary) {
+                    let remote = project.deployPath.map { "cd \(Sh.q($0)) && " } ?? ""
+                    TerminalLauncher.run("ssh \(Sh.q(host)) \(Sh.q("\(remote)\(cmd)"))")
+                }
+            }
+
+            if let host = project.deployHost, let cmd = project.stopCommand {
+                ProjectActionBtn("stop.circle", "Stop", .secondary) {
+                    let remote = project.deployPath.map { "cd \(Sh.q($0)) && " } ?? ""
+                    TerminalLauncher.run("ssh \(Sh.q(host)) \(Sh.q("\(remote)\(cmd)"))")
+                }
+            }
+
+            if let url = project.deployURL {
+                ProjectActionBtn("heart.text.square", "Health", .primary) {
+                    // curl -sfo /dev/null and surface result via Ghostty so the user sees pass/fail
+                    let probe = "curl -sf -o /dev/null -w 'HTTP %{http_code} in %{time_total}s\\n' \(Sh.q(url)) || echo 'FAIL'"
+                    TerminalLauncher.run(probe)
+                }
             }
 
             if let url = project.deployURL {
@@ -52,23 +75,26 @@ struct ProjectDeploySection: View {
                 ProjectDisabledAction("globe", "Live", hint: "set URL")
             }
 
-            if let hostInfo = deployHostInfo {
+            if let host = project.deployHost {
                 ProjectActionBtn("cpu", "Server", .secondary) {
-                    DeskfloorApp.sshJump(host: hostInfo.name)
-                }
-            } else if hasDeploy {
-                ProjectActionBtn("cpu", "Server", .secondary) {
-                    DeskfloorApp.sshJump(host: project.deployHost!)
+                    DeskfloorApp.sshJump(host: host)
                 }
             } else {
                 ProjectDisabledAction("cpu", "Server", hint: "set host")
             }
 
-            if hasDeploy {
+            if let host = project.deployHost {
                 ProjectActionBtn("doc.text.magnifyingglass", "Logs", .secondary) {
-                    let host = project.deployHost!
                     let path = project.deployPath ?? "~"
-                    DeskfloorApp.openInITerm("ssh \(host) 'cd \(path) && tail -100f *.log 2>/dev/null || journalctl -n 100 -f'")
+                    let logsCmd: String
+                    if let logs = project.logPaths, !logs.isEmpty {
+                        let escaped = logs.map(Sh.q).joined(separator: " ")
+                        logsCmd = "tail -100f \(escaped)"
+                    } else {
+                        // Best-effort: the configured dir's *.log first, else journalctl, else docker logs.
+                        logsCmd = "cd \(Sh.q(path)) && (tail -100f *.log 2>/dev/null || journalctl --user -n 100 -f 2>/dev/null || journalctl -n 100 -f 2>/dev/null || docker compose logs --tail=100 -f)"
+                    }
+                    TerminalLauncher.run("ssh \(Sh.q(host)) \(Sh.q(logsCmd))")
                 }
             } else {
                 ProjectDisabledAction("doc.text.magnifyingglass", "Logs", hint: "set host")
@@ -92,6 +118,17 @@ struct ProjectDeploySection: View {
                         text: "\(hostInfo.diskPercent)%",
                         color: hostInfo.diskPercent >= 85 ? Df.uncertain : Df.certain
                     )
+                }
+            }
+
+            if let last = project.lastDeployAt {
+                HStack(spacing: 3) {
+                    Image(systemName: "paperplane")
+                        .font(.system(size: 9))
+                        .foregroundStyle(Df.textTertiary(scheme))
+                    Text("deployed \(last, style: .relative) ago")
+                        .font(Df.monoSmallFont)
+                        .foregroundStyle(Df.textSecondary(scheme))
                 }
             }
 

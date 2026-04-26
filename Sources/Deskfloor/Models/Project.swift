@@ -78,6 +78,10 @@ struct Project: Codable, Identifiable, Hashable {
     var deployPath: String?       // remote path, e.g. "/opt/myapp"
     var deployCommand: String?    // e.g. "docker compose up -d"
     var deployURL: String?        // live URL, e.g. "https://myapp.example.com"
+    var restartCommand: String?   // e.g. "systemctl restart myapp"; falls back to deployCommand
+    var stopCommand: String?      // e.g. "docker compose down"
+    var logPaths: [String]?       // explicit log paths to tail; falls back to *.log + journalctl
+    var lastDeployAt: Date?       // set by the Deploy button; surfaces in status row
 
     static func blank() -> Project {
         Project(
@@ -105,7 +109,11 @@ struct Project: Codable, Identifiable, Hashable {
             deployHost: nil,
             deployPath: nil,
             deployCommand: nil,
-            deployURL: nil
+            deployURL: nil,
+            restartCommand: nil,
+            stopCommand: nil,
+            logPaths: nil,
+            lastDeployAt: nil
         )
     }
 }

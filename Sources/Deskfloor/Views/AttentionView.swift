@@ -510,14 +510,14 @@ struct AttentionItemRow: View {
             NSWorkspace.shared.open(url)
         case .runCommand(let cmd, let host):
             if let host {
-                DeskfloorApp.openInITerm("ssh -o RemoteCommand=none \(host) '\(cmd)'")
+                TerminalLauncher.run("ssh -o RemoteCommand=none \(Sh.q(host)) \(Sh.q(cmd))")
             } else {
-                DeskfloorApp.openInITerm(cmd)
+                TerminalLauncher.run(cmd)
             }
         case .dispatch(let context):
             DeskfloorApp.dispatchToAgent(context: context)
-        case .openProject:
-            break // TODO: navigate to project
+        case .openProject(let id):
+            NotificationCenter.default.post(name: .navigateToProject, object: id)
         }
     }
 }

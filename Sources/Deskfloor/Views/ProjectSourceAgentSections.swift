@@ -11,17 +11,17 @@ struct ProjectSourceSection: View {
     var body: some View {
         ProjectActionSection(title: "SOURCE", icon: "doc.text", key: "source", expandedSections: expandedSections, project: $project) {
             HStack(spacing: Df.space2) {
-                if hasSource {
+                if let path = project.localPath {
                     ProjectActionBtn("folder", "Open", .primary) {
-                        DeskfloorApp.openInITerm("cd \(project.localPath!)")
+                        NSWorkspace.shared.open(URL(fileURLWithPath: path))
                     }
                 } else {
                     ProjectDisabledAction("folder", "Open", hint: "needs local path")
                 }
 
-                if hasRepo {
+                if let repo = project.repo {
                     ProjectActionBtn("link", "GitHub", .secondary) {
-                        if let url = URL(string: "https://github.com/\(project.repo!)") {
+                        if let url = URL(string: "https://github.com/\(repo)") {
                             NSWorkspace.shared.open(url)
                         }
                     }
@@ -29,9 +29,9 @@ struct ProjectSourceSection: View {
                     ProjectDisabledAction("link", "GitHub", hint: "set repo")
                 }
 
-                if hasRepo {
+                if let repo = project.repo {
                     ProjectActionBtn("arrow.down.circle", "Clone", .secondary) {
-                        DeskfloorApp.openInITerm("cd ~/Nissan && gh repo clone \(project.repo!)")
+                        TerminalLauncher.run("gh repo clone \(Sh.q(repo))", in: NSString(string: "~/Nissan").expandingTildeInPath)
                     }
                 }
 
@@ -60,13 +60,15 @@ struct ProjectAgentSection: View {
         ProjectActionSection(title: "AGENT", icon: "brain", key: "agent", expandedSections: expandedSections, project: $project) {
             VStack(alignment: .leading, spacing: Df.space2) {
                 HStack(spacing: Df.space2) {
-                    if hasSource {
+                    if let path = project.localPath {
                         ProjectActionBtn("plus.circle", "Fresh", .primary) {
-                            DeskfloorApp.openInITerm("cd \(project.localPath!) && claude")
+                            TerminalLauncher.run("claude", in: path)
                         }
-                    } else if hasRepo {
+                    } else if let repo = project.repo {
                         ProjectActionBtn("plus.circle", "Fresh", .primary) {
-                            DeskfloorApp.openInITerm("cd ~/Nissan && gh repo clone \(project.repo!) 2>/dev/null; cd ~/Nissan/\(project.name) && claude")
+                            let nissan = NSString(string: "~/Nissan").expandingTildeInPath
+                            let cmd = "gh repo clone \(Sh.q(repo)) 2>/dev/null; cd \(Sh.q(project.name)) && claude"
+                            TerminalLauncher.run(cmd, in: nissan)
                         }
                     } else {
                         ProjectDisabledAction("plus.circle", "Fresh", hint: "needs source")
@@ -75,7 +77,7 @@ struct ProjectAgentSection: View {
                     if let latest = agentThreads.first, latest.status == .live || latest.status == .paused {
                         ProjectActionBtn("arrow.counterclockwise", "Resume", .accent) {
                             if let path = project.localPath {
-                                DeskfloorApp.openInITerm("cd \(path) && claude --continue")
+                                TerminalLauncher.run("claude --continue", in: path)
                             }
                         }
                     } else {
