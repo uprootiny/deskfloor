@@ -17,32 +17,31 @@ struct ProjectCard: View {
 
                     Spacer()
 
-                    // CI badge
-                    if let ci = project.ciStatus {
-                        switch ci {
-                        case .green:
-                            Image(systemName: "checkmark.circle.fill")
+                    // CI badge — clickable, opens GitHub Actions for the repo
+                    if let ci = project.ciStatus, ci != .none, let repo = project.repo {
+                        Button {
+                            if let url = URL(string: "https://github.com/\(repo)/actions") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        } label: {
+                            Image(systemName: ciIconName(ci))
                                 .font(.system(size: 10))
-                                .foregroundStyle(.green)
-                                .help("CI passing")
-                        case .red:
-                            Image(systemName: "xmark.circle.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.red)
-                                .help("CI failing")
-                        case .yellow:
-                            Image(systemName: "clock.circle.fill")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.yellow)
-                                .help("CI running")
-                        case .pending:
-                            Image(systemName: "circle.dotted")
-                                .font(.system(size: 10))
-                                .foregroundStyle(.white.opacity(0.3))
-                                .help("CI queued")
-                        case .none:
-                            EmptyView()
+                                .foregroundStyle(ciIconColor(ci))
                         }
+                        .buttonStyle(.plain)
+                        .help("CI \(ci.rawValue) — click to open GitHub Actions")
+                    }
+
+                    // Stale indicator — active project untouched for > 30 days
+                    if isStale {
+                        Text("stale")
+                            .font(.system(size: 8, weight: .medium))
+                            .foregroundStyle(Df.uncertain)
+                            .padding(.horizontal, 4)
+                            .padding(.vertical, 1)
+                            .background(Df.uncertain.opacity(0.15))
+                            .clipShape(RoundedRectangle(cornerRadius: 3))
+                            .help("Active but no commits in 30+ days — consider Pause / Archive")
                     }
 
                     perspectiveBadge
@@ -113,27 +112,22 @@ struct ProjectCard: View {
         .onTapGesture(perform: onTap)
         .contextMenu {
             Button(action: {
-                let cmd: String
                 if let path = project.localPath {
-                    cmd = "cd \(path) && claude"
+                    TerminalLauncher.run("claude", in: path)
                 } else if let repo = project.repo {
-                    cmd = "cd ~/Nissan && gh repo clone \(repo) 2>/dev/null; cd ~/Nissan/\(project.name) && claude"
-                } else {
-                    cmd = "claude"
+                    let nissan = NSString(string: "~/Nissan").expandingTildeInPath
+                    TerminalLauncher.run("gh repo clone \(Sh.q(repo)) 2>/dev/null; cd \(Sh.q(project.name)) && claude", in: nissan)
                 }
-                DeskfloorApp.openInITerm(cmd)
             }) {
                 Label("Run Agent Session", systemImage: "play.fill")
             }
 
             Button(action: {
                 if let path = project.localPath {
-                    DeskfloorApp.openInITerm("cd \(path)")
-                } else {
-                    DeskfloorApp.sshJump(host: "hyle")
+                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
                 }
             }) {
-                Label("Open in iTerm", systemImage: "terminal")
+                Label("Reveal in Finder", systemImage: "folder")
             }
 
             if let repo = project.repo {
@@ -203,6 +197,32 @@ struct ProjectCard: View {
         case "shell": return Color(red: 0.5, green: 0.7, blue: 0.5)
         case "c++", "c": return Color(red: 0.4, green: 0.5, blue: 0.8)
         default: return Df.textSecondary(.dark)
+        }
+    }
+
+    private var isStale: Bool {
+        guard project.status == .active,
+              let last = project.lastActivity else { return false }
+        return Date().timeIntervalSince(last) > 30 * 86400
+    }
+
+    private func ciIconName(_ ci: Project.CIBadge) -> String {
+        switch ci {
+        case .green: return "checkmark.circle.fill"
+        case .red: return "xmark.circle.fill"
+        case .yellow: return "clock.circle.fill"
+        case .pending: return "circle.dotted"
+        case .none: return "circle"
+        }
+    }
+
+    private func ciIconColor(_ ci: Project.CIBadge) -> Color {
+        switch ci {
+        case .green: return .green
+        case .red: return .red
+        case .yellow: return .yellow
+        case .pending: return .white.opacity(0.3)
+        case .none: return .clear
         }
     }
 

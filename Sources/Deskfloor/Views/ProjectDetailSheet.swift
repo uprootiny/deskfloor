@@ -7,6 +7,7 @@ struct ProjectDetailSheet: View {
     var skein: SkeinStore? = nil
     var fleet: FleetStore? = nil
     var dataBus: DataBus? = nil
+    var sessionRegistry: SessionRegistry? = nil
     var onSave: (Project) -> Void
     var onDelete: (() -> Void)?
     var onCancel: () -> Void
@@ -27,7 +28,7 @@ struct ProjectDetailSheet: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: Df.space4) {
                     ProjectSourceSection(project: $project, expandedSections: $expandedSections)
-                    ProjectAgentSection(project: $project, expandedSections: $expandedSections, skein: skein)
+                    ProjectAgentSection(project: $project, expandedSections: $expandedSections, skein: skein, sessionRegistry: sessionRegistry)
                     ProjectDeploySection(project: $project, expandedSections: $expandedSections, fleet: fleet, dataBus: dataBus, showDeployConfig: $showDeployConfig)
                     ProjectGitCard(project: project)
                     ProjectProgressBlock(project: $project, newNoteText: $newNoteText)

@@ -18,6 +18,13 @@ final class LoomStore {
 
     private let storeURL: URL
 
+    /// Debounce window for save coalescing. Mock-response scheduling fires
+    /// 3-7 mutations within ~600 ms; without coalescing each writes the whole
+    /// snapshot to disk. With this, all mutations within 200 ms produce a
+    /// single write.
+    private let saveDebounce: TimeInterval = 0.2
+    private var pendingSaveWorkItem: DispatchWorkItem?
+
     init() {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let dir = home.appendingPathComponent(".deskfloor", isDirectory: true)
@@ -48,7 +55,20 @@ final class LoomStore {
         hasSeeded = snap.hasSeeded
     }
 
+    /// Coalesce rapid mutations into a single write.
     func save() {
+        pendingSaveWorkItem?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            self?.flushSave()
+        }
+        pendingSaveWorkItem = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + saveDebounce, execute: work)
+    }
+
+    /// Force an immediate flush. Useful before app termination or migration.
+    func flushSave() {
+        pendingSaveWorkItem?.cancel()
+        pendingSaveWorkItem = nil
         let snap = Snapshot(
             schemaVersion: schemaVersion,
             visibleWarps: visibleWarps,

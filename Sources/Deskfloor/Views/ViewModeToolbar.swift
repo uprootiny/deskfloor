@@ -15,30 +15,37 @@ struct ViewModeToolbar: View {
     var body: some View {
         HStack(spacing: Df.space3) {
             HStack(spacing: 2) {
-                ForEach(ViewMode.allCases) { mode in
-                    Button(action: { viewMode = mode }) {
-                        Image(systemName: mode.icon)
-                            .font(.system(size: 12))
-                            .foregroundStyle(
-                                viewMode == mode
-                                    ? Df.textPrimary(scheme)
-                                    : Df.textTertiary(scheme)
-                            )
-                            .frame(width: 28, height: 24)
-                            .background(
-                                viewMode == mode
-                                    ? Df.elevated(scheme)
-                                    : .clear
-                            )
-                            .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
-                            .shadow(
-                                color: viewMode == mode ? Df.bevelShadow(scheme) : .clear,
-                                radius: 2, y: 1
-                            )
-                    }
-                    .buttonStyle(.plain)
-                    .help(mode.label)
+                ForEach(ViewMode.primary) { mode in
+                    modeButton(mode)
                 }
+
+                // Overflow menu — secondary views collapsed under a single ⋯ control
+                Menu {
+                    ForEach(ViewMode.secondary) { mode in
+                        Button {
+                            viewMode = mode
+                        } label: {
+                            Label(mode.label, systemImage: mode.icon)
+                        }
+                    }
+                } label: {
+                    let activeSecondary = !viewMode.isPrimary
+                    Image(systemName: activeSecondary ? viewMode.icon : "ellipsis")
+                        .font(.system(size: 12))
+                        .foregroundStyle(
+                            activeSecondary
+                                ? Df.textPrimary(scheme)
+                                : Df.textTertiary(scheme)
+                        )
+                        .frame(width: 28, height: 24)
+                        .background(activeSecondary ? Df.elevated(scheme) : .clear)
+                        .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
+                        .shadow(color: activeSecondary ? Df.bevelShadow(scheme) : .clear, radius: 2, y: 1)
+                }
+                .menuStyle(.borderlessButton)
+                .menuIndicator(.hidden)
+                .frame(width: 28, height: 24)
+                .help("More views (Perspective, Timeline, Graph, Skein, Paste)")
             }
             .padding(2)
             .background(Df.inset(scheme))
@@ -95,6 +102,32 @@ struct ViewModeToolbar: View {
         .padding(.horizontal, Df.space4)
         .padding(.vertical, Df.space2)
         .background(Df.surface(scheme))
+    }
+
+    @ViewBuilder
+    private func modeButton(_ mode: ViewMode) -> some View {
+        Button(action: { viewMode = mode }) {
+            Image(systemName: mode.icon)
+                .font(.system(size: 12))
+                .foregroundStyle(
+                    viewMode == mode
+                        ? Df.textPrimary(scheme)
+                        : Df.textTertiary(scheme)
+                )
+                .frame(width: 28, height: 24)
+                .background(
+                    viewMode == mode
+                        ? Df.elevated(scheme)
+                        : .clear
+                )
+                .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
+                .shadow(
+                    color: viewMode == mode ? Df.bevelShadow(scheme) : .clear,
+                    radius: 2, y: 1
+                )
+        }
+        .buttonStyle(.plain)
+        .help(mode.label)
     }
 
     private func toolbarButton(_ label: String, icon: String, disabled: Bool = false, action: @escaping () -> Void) -> some View {

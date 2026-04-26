@@ -2,16 +2,24 @@ import SwiftUI
 
 enum ViewMode: String, CaseIterable, Identifiable {
     case board
+    case attention
+    case sessions
+    case loom
     case perspective
     case timeline
     case graph
     case skein
     case paste
-    case attention
-    case loom
-    case sessions
 
     var id: String { rawValue }
+
+    /// Modes shown directly in the toolbar — the daily drivers.
+    static let primary: [ViewMode] = [.board, .attention, .sessions, .loom]
+
+    /// Modes hidden in a "More" overflow — historical / experimental / niche.
+    static let secondary: [ViewMode] = [.perspective, .timeline, .graph, .skein, .paste]
+
+    var isPrimary: Bool { Self.primary.contains(self) }
 
     var label: String {
         switch self {
@@ -136,6 +144,7 @@ struct ContentView: View {
                 skein: skein,
                 fleet: fleet,
                 dataBus: dataBus,
+                sessionRegistry: sessionRegistry,
                 onSave: { updated in store.updateProject(updated); selectedProject = nil },
                 onDelete: { store.deleteProject(project); selectedProject = nil },
                 onCancel: { selectedProject = nil }
