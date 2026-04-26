@@ -285,6 +285,8 @@ struct DeskfloorApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     private let toggleHotkey = HotkeyManager()
     private let engineerHotkey = HotkeyManager()
+    // Tile hotkeys — one HotkeyManager per binding, each filters by ownID.
+    private var tileHotkeys: [HotkeyManager] = []
     private let panelController = LauncherWindowController()
 
     // These are set by the App struct via onAppear or similar
@@ -323,6 +325,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             id: 2
         )
         NSLog("[Deskfloor] Hotkey registered: ⌥⌘L → engineer this launcher")
+
+        // Tile hotkeys — ⌃⌥<key> chord, ids 10..
+        let tileMod = HotkeyManager.modControl | HotkeyManager.modOption
+        let tiles: [(UInt32, UInt32, () -> Void, String)] = [
+            (10, HotkeyManager.kcT,           { DeskfloorApp.tileOpenTerminals() },          "⌃⌥T → tile open terminals into columns"),
+            (11, HotkeyManager.kcArrowLeft,   { _ = WindowTiling.apply(.leftHalf) },         "⌃⌥← → left half"),
+            (12, HotkeyManager.kcArrowRight,  { _ = WindowTiling.apply(.rightHalf) },        "⌃⌥→ → right half"),
+            (13, HotkeyManager.kcArrowUp,     { _ = WindowTiling.apply(.topHalf) },          "⌃⌥↑ → top half"),
+            (14, HotkeyManager.kcArrowDown,   { _ = WindowTiling.apply(.bottomHalf) },       "⌃⌥↓ → bottom half"),
+            (15, HotkeyManager.kc1,           { _ = WindowTiling.apply(.leftThird) },        "⌃⌥1 → left third"),
+            (16, HotkeyManager.kc2,           { _ = WindowTiling.apply(.middleThird) },      "⌃⌥2 → middle third"),
+            (17, HotkeyManager.kc3,           { _ = WindowTiling.apply(.rightThird) },       "⌃⌥3 → right third"),
+            (18, HotkeyManager.kcF,           { _ = WindowTiling.apply(.almostFill) },       "⌃⌥F → almost fill")
+        ]
+        for (id, keyCode, action, label) in tiles {
+            let mgr = HotkeyManager()
+            mgr.onTrigger = action
+            mgr.register(keyCode: keyCode, modifiers: tileMod, id: id)
+            tileHotkeys.append(mgr)
+            NSLog("[Deskfloor] Hotkey registered: \(label)")
+        }
     }
 
     func toggleLauncher() {

@@ -8,6 +8,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     case skein
     case paste
     case attention
+    case loom
 
     var id: String { rawValue }
 
@@ -18,8 +19,9 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .timeline: "Timeline"
         case .graph: "Graph"
         case .skein: "Skein"
-        case .paste: "Loom"
+        case .paste: "Paste"
         case .attention: "Attention"
+        case .loom: "Loom"
         }
     }
 
@@ -32,6 +34,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .skein: "line.3.horizontal"
         case .paste: "doc.on.clipboard"
         case .attention: "exclamationmark.triangle"
+        case .loom: "square.split.2x2"
         }
     }
 }
@@ -41,6 +44,7 @@ struct ContentView: View {
     @State var store: ProjectStore
     @State var fleet: FleetStore
     @State var skein: SkeinStore = SkeinStore()
+    @State var loom: LoomStore = LoomStore()
     @State var dataBus: DataBus = DataBus()
     @State private var viewMode: ViewMode = .board
     @State private var searchText = ""
@@ -193,6 +197,9 @@ struct ContentView: View {
             }
             if viewMode == .attention {
                 AttentionView(dataBus: dataBus, store: store)
+            }
+            if viewMode == .loom {
+                LoomView(skein: skein, loom: loom)
             }
         }
     }

@@ -10,9 +10,19 @@ final class HotkeyManager {
     static let modOption: UInt32  = UInt32(optionKey)
     static let modShift: UInt32   = UInt32(shiftKey)
 
-    // Common key codes
+    // Common key codes (USB HID virtual keys)
     static let kcSpace: UInt32 = 49
     static let kcL: UInt32 = 37
+    static let kcT: UInt32 = 17
+    static let kcF: UInt32 = 3
+    static let kcReturn: UInt32 = 36
+    static let kcArrowLeft: UInt32 = 123
+    static let kcArrowRight: UInt32 = 124
+    static let kcArrowDown: UInt32 = 125
+    static let kcArrowUp: UInt32 = 126
+    static let kc1: UInt32 = 18
+    static let kc2: UInt32 = 19
+    static let kc3: UInt32 = 20
 
     private var hotkeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?

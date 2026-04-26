@@ -61,8 +61,16 @@ struct LauncherPanelView: View {
             items.append(.historyCommand(cmd))
         }
 
-        for preset in WindowTiling.Preset.allCases {
-            items.append(.tile(preset))
+        // Tile presets are noisy when the launcher first opens — only include
+        // them when the user has typed something tile-related (or anything,
+        // really; empty-query view stays focused on what was used recently).
+        let q = query.lowercased()
+        let tileTriggers: Set<String> = ["t", "ti", "til", "tile", "left", "right", "top", "bottom", "third", "thir", "half", "quarter", "fill", "center", "cente"]
+        let queryLooksTileish = !q.isEmpty && tileTriggers.contains(where: { q.hasPrefix($0) || $0.hasPrefix(q) })
+        if queryLooksTileish {
+            for preset in WindowTiling.Preset.allCases {
+                items.append(.tile(preset))
+            }
         }
 
         return items
