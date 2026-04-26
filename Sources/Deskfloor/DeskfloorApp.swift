@@ -71,6 +71,13 @@ struct DeskfloorApp: App {
                 sessionRegistry.refresh()
             }
 
+            Button("Diagnostics → Console") {
+                NSLog("[Deskfloor]\n\(sessionRegistry.diagnosticSummary())")
+                NSLog("[Deskfloor] Toggle hotkey: ⌃Space (kc 49 + controlKey)")
+                NSLog("[Deskfloor] Engineer hotkey: ⌥⌘L (kc 37 + cmdKey|optionKey)")
+                NSLog("[Deskfloor] Terminal backend: \(TerminalLauncher.detectBackend().rawValue)")
+            }
+
             Divider()
 
             if fleet.isReachable {
@@ -106,18 +113,24 @@ struct DeskfloorApp: App {
     }
 
     /// Punch-through: open Claude Code on the deskfloor repo itself, resuming the
-    /// most-recent session if one exists. Falls back to a fresh session.
+    /// most-recent session if one exists. Walks up parent dirs (most engineering
+    /// context lives in ~/Nissan, not the deskfloor subdir) and falls back to fresh.
     static func engineerThisLauncher(registry: SessionRegistry) {
-        let path = NSString(string: "~/Nissan/deskfloor").expandingTildeInPath
-        let cmd: String
-        if let session = registry.mostRecent(forCwd: path) {
-            cmd = "claude --resume \(session.uuid)"
-            NSLog("[Deskfloor] Engineer-this resuming session \(session.uuid) (\(session.byteSize) bytes)")
-        } else {
-            cmd = "claude"
-            NSLog("[Deskfloor] Engineer-this opening fresh claude session")
+        let target = NSString(string: "~/Nissan/deskfloor").expandingTildeInPath
+        let candidates = [
+            target,
+            NSString(string: "~/Nissan").expandingTildeInPath,
+            NSString(string: "~").expandingTildeInPath
+        ]
+        for candidate in candidates {
+            if let session = registry.mostRecent(forCwd: candidate) {
+                NSLog("[Deskfloor] Engineer-this resuming \(session.uuid.prefix(8)) from \(candidate) (\(session.byteSize / 1024) KB)")
+                TerminalLauncher.run("claude --resume \(session.uuid)", in: target)
+                return
+            }
         }
-        TerminalLauncher.run(cmd, in: path)
+        NSLog("[Deskfloor] Engineer-this opening fresh claude session in \(target)")
+        TerminalLauncher.run("claude", in: target)
     }
 
     /// Open Claude Code in a project, preferring to resume its most-recent session.
@@ -141,7 +154,9 @@ struct DeskfloorApp: App {
         case .fresh:
             cmd = "claude"
         case .freshWithPrimer(let primerPath):
-            cmd = "claude 'Read \(primerPath) and orient yourself, then ask what to do next.'"
+            // Single-quote the path inside the prompt; escape embedded single quotes.
+            let safePath = primerPath.replacingOccurrences(of: "'", with: "'\\''")
+            cmd = "claude 'Read '\\''\(safePath)'\\'' and orient yourself, then ask what to do next.'"
         }
         TerminalLauncher.run(cmd, in: path)
     }

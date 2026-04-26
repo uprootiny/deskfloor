@@ -154,6 +154,17 @@ struct LauncherPanelView: View {
             jumpToNextCategory()
             return .handled
         }
+        .onKeyPress(.return, phases: .down) { press in
+            // ⌘↵ = fresh claude session for the selected project (alternate action).
+            // Plain ↵ falls through to the existing onSubmit on the search field.
+            if press.modifiers.contains(.command),
+               let item = flatResults[safe: selectedIndex],
+               case .project(let p) = item {
+                triggerProject(p, mode: .fresh)
+                return .handled
+            }
+            return .ignored
+        }
     }
 
     // MARK: - Search Bar
@@ -260,10 +271,12 @@ struct LauncherPanelView: View {
                 .foregroundStyle(Df.textSecondary(scheme))
 
             VStack(alignment: .leading, spacing: Df.space2) {
-                hintRow("Type a host name", "to SSH in iTerm")
-                hintRow("Type a session name", "to attach tmux")
-                hintRow("Type a project name", "to open on GitHub")
+                hintRow("Type a project name", "↵ resumes latest claude session")
+                hintRow("⌘↵", "opens a fresh claude session instead")
+                hintRow("Right-click a project", "for session picker / primer / repo")
+                hintRow("Type a host name", "↵ to SSH (Ghostty / iTerm / Terminal)")
                 hintRow("Press Tab", "to jump between groups")
+                hintRow("⌥⌘L from anywhere", "engineers the launcher itself")
             }
             .padding(.horizontal, 40)
 
@@ -462,21 +475,25 @@ struct LauncherPanelView: View {
         if case .project(let p) = item {
             let sessions = sessionRegistry.sessions(for: p)
             if let recent = sessions.first {
-                Button("Resume latest session (\(relativeAge(recent.lastModified)))") {
+                Button("Resume latest — \(recent.displayLabel)") {
                     triggerProject(p, mode: .resumeSpecific(uuid: recent.uuid))
                 }
             }
             if sessions.count > 1 {
                 Menu("Pick a session… (\(sessions.count))") {
                     ForEach(sessions.prefix(20)) { s in
-                        Button("\(s.uuid.prefix(8)) — \(relativeAge(s.lastModified)) — \(s.byteSize / 1024) KB") {
+                        Button(s.displayLabel) {
                             triggerProject(p, mode: .resumeSpecific(uuid: s.uuid))
                         }
+                    }
+                    if sessions.count > 20 {
+                        Divider()
+                        Text("\(sessions.count - 20) older not shown")
                     }
                 }
             }
             Divider()
-            Button("Fresh Claude session") {
+            Button("Fresh Claude session  ⌘↵") {
                 triggerProject(p, mode: .fresh)
             }
             if let primer = primerPath(for: p) {
