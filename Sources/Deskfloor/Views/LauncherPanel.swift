@@ -61,6 +61,10 @@ struct LauncherPanelView: View {
             items.append(.historyCommand(cmd))
         }
 
+        for preset in WindowTiling.Preset.allCases {
+            items.append(.tile(preset))
+        }
+
         return items
     }
 
@@ -68,7 +72,7 @@ struct LauncherPanelView: View {
     private var flatResults: [LauncherItem] { results }
     private var grouped: [(String, [LauncherItem])] {
         let dict = Dictionary(grouping: results, by: \.category)
-        return ["Hosts", "Sessions", "Prompts", "Projects", "History", "Commands"].compactMap { cat in
+        return ["Hosts", "Sessions", "Prompts", "Projects", "History", "Commands", "Tile"].compactMap { cat in
             guard let items = dict[cat], !items.isEmpty else { return nil }
             return (cat, items)
         }
@@ -371,6 +375,7 @@ struct LauncherPanelView: View {
         case .command: return "run"
         case .prompt: return "copy"
         case .historyCommand: return "run"
+        case .tile: return "tile"
         }
     }
 
@@ -417,7 +422,9 @@ struct LauncherPanelView: View {
         case .prompt(let p):
             return "Copy prompt: \(p.title)"
         case .historyCommand(let h):
-            return "Run in iTerm: \(h.command)"
+            return "Run in terminal: \(h.command)"
+        case .tile(let preset):
+            return "Apply \(preset.label) to focused window (needs Accessibility permission)"
         }
     }
 
@@ -441,6 +448,7 @@ struct LauncherPanelView: View {
         case .historyCommand(let h):
             let short = h.command.count > 30 ? String(h.command.prefix(30)) + "..." : h.command
             msg = "Running \(short)..."
+        case .tile(let preset): msg = preset.label
         }
         withAnimation(.easeIn(duration: 0.15)) {
             toast = ToastMessage(text: msg, icon: "checkmark.circle.fill", color: Df.certain)
@@ -674,6 +682,7 @@ struct LauncherRow: View {
         case .command: "RUN"
         case .prompt: "COPY"
         case .historyCommand: "RUN"
+        case .tile: "TILE"
         }
     }
 
@@ -685,6 +694,7 @@ struct LauncherRow: View {
         case .command: "command"
         case .prompt: "text.quote"
         case .historyCommand: "clock.arrow.circlepath"
+        case .tile: "rectangle.split.2x1"
         }
     }
 
@@ -696,6 +706,7 @@ struct LauncherRow: View {
         case .command: Df.uncertain
         case .prompt: Df.agent
         case .historyCommand: Color(red: 0.3, green: 0.7, blue: 0.8)
+        case .tile: Df.info
         }
     }
 }

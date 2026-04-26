@@ -76,6 +76,37 @@ struct DeskfloorApp: App {
                 NSLog("[Deskfloor] Toggle hotkey: ⌃Space (kc 49 + controlKey)")
                 NSLog("[Deskfloor] Engineer hotkey: ⌥⌘L (kc 37 + cmdKey|optionKey)")
                 NSLog("[Deskfloor] Terminal backend: \(TerminalLauncher.detectBackend().rawValue)")
+                NSLog("[Deskfloor] Accessibility (for tiling): \(WindowTiling.ensurePermission(prompt: false))")
+            }
+
+            Divider()
+
+            Menu("Tile") {
+                Button("Tile Open Terminals into Columns  ⌃⌥T") {
+                    Self.tileOpenTerminals()
+                }
+                Divider()
+                Button("Left Half  ⌃⌥←") { _ = WindowTiling.apply(.leftHalf) }
+                Button("Right Half  ⌃⌥→") { _ = WindowTiling.apply(.rightHalf) }
+                Button("Top Half  ⌃⌥↑") { _ = WindowTiling.apply(.topHalf) }
+                Button("Bottom Half  ⌃⌥↓") { _ = WindowTiling.apply(.bottomHalf) }
+                Divider()
+                Button("Left Third") { _ = WindowTiling.apply(.leftThird) }
+                Button("Middle Third") { _ = WindowTiling.apply(.middleThird) }
+                Button("Right Third") { _ = WindowTiling.apply(.rightThird) }
+                Divider()
+                Button("Top-Left Quarter") { _ = WindowTiling.apply(.topLeft) }
+                Button("Top-Right Quarter") { _ = WindowTiling.apply(.topRight) }
+                Button("Bottom-Left Quarter") { _ = WindowTiling.apply(.bottomLeft) }
+                Button("Bottom-Right Quarter") { _ = WindowTiling.apply(.bottomRight) }
+                Divider()
+                Button("Center") { _ = WindowTiling.apply(.center) }
+                Button("Almost Fill") { _ = WindowTiling.apply(.almostFill) }
+                Button("Fill") { _ = WindowTiling.apply(.fill) }
+                Divider()
+                Button("Request Accessibility Permission…") {
+                    _ = WindowTiling.ensurePermission(prompt: true)
+                }
             }
 
             Divider()
@@ -231,7 +262,21 @@ struct DeskfloorApp: App {
             promptStore?.recordUse(id: p.id)
         case .historyCommand(let h):
             TerminalLauncher.run(h.command)
+        case .tile(let preset):
+            _ = WindowTiling.apply(preset)
         }
+    }
+
+    /// Sweep all visible terminal-app windows into N equal columns. Right-now relief
+    /// for "my screen is a mess".
+    static func tileOpenTerminals() {
+        let bundleIDs = [
+            "com.apple.Terminal",
+            "com.googlecode.iterm2",
+            "com.mitchellh.ghostty"
+        ]
+        let n = WindowTiling.tileColumns(bundleIDs: bundleIDs)
+        NSLog("[Deskfloor] tile-open-terminals: arranged \(n) windows into columns")
     }
 }
 

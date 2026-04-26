@@ -9,6 +9,7 @@ enum LauncherItem: Identifiable {
     case command(String, String) // label, command
     case prompt(PromptStore.Prompt)
     case historyCommand(HistoryStore.HistoryCommand)
+    case tile(WindowTiling.Preset)
 
     var id: String {
         switch self {
@@ -18,6 +19,7 @@ enum LauncherItem: Identifiable {
         case .command(let label, _): return "cmd:\(label)"
         case .prompt(let p): return "prompt:\(p.id.uuidString)"
         case .historyCommand(let h): return "history:\(h.id)"
+        case .tile(let preset): return "tile:\(preset.rawValue)"
         }
     }
 
@@ -30,6 +32,7 @@ enum LauncherItem: Identifiable {
         case .prompt(let p): return p.title
         case .historyCommand(let h):
             return h.command.count > 60 ? String(h.command.prefix(60)) + "..." : h.command
+        case .tile(let preset): return preset.label
         }
     }
 
@@ -66,6 +69,10 @@ enum LauncherItem: Identifiable {
         case .historyCommand(let h):
             let timeAgo = Self.relativeTime(h.lastUsed)
             return "used \(h.count)x, \(timeAgo)"
+        case .tile(let preset):
+            let f = preset.fraction
+            return String(format: "x %.0f%% · y %.0f%% · w %.0f%% · h %.0f%%",
+                          f.x * 100, f.y * 100, f.w * 100, f.h * 100)
         }
     }
 
@@ -77,6 +84,7 @@ enum LauncherItem: Identifiable {
         case .command: return "Commands"
         case .prompt: return "Prompts"
         case .historyCommand: return "History"
+        case .tile: return "Tile"
         }
     }
 
@@ -90,6 +98,8 @@ enum LauncherItem: Identifiable {
         case .prompt(let p): return p.tags
         case .historyCommand(let h):
             return h.command.split(separator: " ").map(String.init)
+        case .tile(let preset):
+            return ["tile", "window", "arrange", preset.rawValue.lowercased()]
         }
     }
 
