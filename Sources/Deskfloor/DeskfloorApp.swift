@@ -113,23 +113,38 @@ struct DeskfloorApp: App {
     }
 
     /// Punch-through: open Claude Code on the deskfloor repo itself, resuming the
-    /// most-recent session if one exists. Walks up parent dirs (most engineering
-    /// context lives in ~/Nissan, not the deskfloor subdir) and falls back to fresh.
+    /// most-recent session if one exists.
+    ///
+    /// Claude binds sessions to their cwd: `--resume <uuid>` only succeeds when
+    /// run from the directory the session was started in. So if the deskfloor
+    /// subdir has sessions of its own, prefer `--continue` there. Otherwise walk
+    /// up to ~/Nissan (where most launcher engineering happened) and resume from
+    /// *that* cwd, not from the target subdir — the resume would 404 otherwise.
     static func engineerThisLauncher(registry: SessionRegistry) {
         let target = NSString(string: "~/Nissan/deskfloor").expandingTildeInPath
-        let candidates = [
-            target,
+
+        // Best path: target dir has its own sessions — `--continue` resumes the latest.
+        if !registry.sessions(forCwd: target).isEmpty {
+            NSLog("[Deskfloor] Engineer-this: claude --continue in \(target)")
+            TerminalLauncher.run("claude --continue", in: target)
+            return
+        }
+
+        // Fallback: walk up to find a parent dir with sessions. Resume from THAT
+        // dir, since claude binds sessions per-cwd.
+        let parents = [
             NSString(string: "~/Nissan").expandingTildeInPath,
             NSString(string: "~").expandingTildeInPath
         ]
-        for candidate in candidates {
-            if let session = registry.mostRecent(forCwd: candidate) {
-                NSLog("[Deskfloor] Engineer-this resuming \(session.uuid.prefix(8)) from \(candidate) (\(session.byteSize / 1024) KB)")
-                TerminalLauncher.run("claude --resume \(session.uuid)", in: target)
+        for parent in parents {
+            if let session = registry.mostRecent(forCwd: parent) {
+                NSLog("[Deskfloor] Engineer-this resuming \(session.uuid.prefix(8)) from \(parent) (\(session.byteSize / 1024) KB)")
+                TerminalLauncher.run("claude --resume \(session.uuid)", in: parent)
                 return
             }
         }
-        NSLog("[Deskfloor] Engineer-this opening fresh claude session in \(target)")
+
+        NSLog("[Deskfloor] Engineer-this: fresh claude in \(target)")
         TerminalLauncher.run("claude", in: target)
     }
 
