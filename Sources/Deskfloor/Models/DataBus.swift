@@ -156,6 +156,26 @@ final class DataBus {
         await MainActor.run {
             self.ciStatuses = runs
             self.lastCIPoll = Date()
+            NSLog("[DataBus] CI polled \(runs.count) repos: \(runs.values.filter { $0.conclusion == "success" }.count) green, \(runs.values.filter { $0.conclusion == "failure" }.count) red")
+        }
+    }
+
+    /// Write CI statuses back into a ProjectStore so cards can show badges.
+    func syncCIToProjects(_ store: ProjectStore) {
+        for i in store.projects.indices {
+            guard let repo = store.projects[i].repo else { continue }
+            if let run = ciStatuses[repo] {
+                let badge: Project.CIBadge
+                switch (run.status, run.conclusion) {
+                case (.failure, _): badge = .red
+                case (.completed, "success"): badge = .green
+                case (.completed, "failure"): badge = .red
+                case (.inProgress, _): badge = .yellow
+                case (.queued, _): badge = .pending
+                default: badge = .none
+                }
+                store.projects[i].ciStatus = badge
+            }
         }
     }
 

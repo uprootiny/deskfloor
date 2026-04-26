@@ -66,6 +66,13 @@ struct Project: Codable, Identifiable, Hashable {
     var dirtyFiles: Int?
     var projectType: String?
 
+    // CI status — transient, populated by DataBus polling, not persisted
+    var ciStatus: CIBadge?
+
+    enum CIBadge: String, Codable {
+        case green, red, yellow, pending, none
+    }
+
     // Deployment — nil means not configured
     var deployHost: String?       // fleet host name, e.g. "hyle"
     var deployPath: String?       // remote path, e.g. "/opt/myapp"

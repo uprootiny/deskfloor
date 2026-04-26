@@ -209,16 +209,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         if panelController.isVisible {
             panelController.hide()
         } else {
-            // Create the launcher view with current stores
-            let store = self.store ?? ProjectStore()
-            let fleet = self.fleet ?? FleetStore()
-            let promptStore = self.promptStore ?? PromptStore()
-            let historyStore = self.historyStore ?? HistoryStore()
-            NSLog("[Deskfloor] Showing launcher with \(store.projects.count) projects, \(fleet.hosts.count) hosts")
-
-            if !fleet.isReachable && fleet.hosts.isEmpty {
-                fleet.fetch()
+            // Use wired stores — if not yet wired (window hasn't appeared), use defaults
+            if store == nil {
+                NSLog("[Deskfloor] WARNING: stores not yet wired from ContentView — using defaults")
+                store = ProjectStore()
+                fleet = FleetStore()
+                promptStore = PromptStore()
+                historyStore = HistoryStore()
+                fleet?.startPolling()
             }
+
+            let store = self.store!
+            let fleet = self.fleet!
+            let promptStore = self.promptStore!
+            let historyStore = self.historyStore!
+            NSLog("[Deskfloor] Showing launcher with \(store.projects.count) projects, \(fleet.hosts.count) hosts")
 
             let launcherView = LauncherPanelView(
                 store: store,

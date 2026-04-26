@@ -17,6 +17,34 @@ struct ProjectCard: View {
 
                     Spacer()
 
+                    // CI badge
+                    if let ci = project.ciStatus {
+                        switch ci {
+                        case .green:
+                            Image(systemName: "checkmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.green)
+                                .help("CI passing")
+                        case .red:
+                            Image(systemName: "xmark.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.red)
+                                .help("CI failing")
+                        case .yellow:
+                            Image(systemName: "clock.circle.fill")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.yellow)
+                                .help("CI running")
+                        case .pending:
+                            Image(systemName: "circle.dotted")
+                                .font(.system(size: 10))
+                                .foregroundStyle(.white.opacity(0.3))
+                                .help("CI queued")
+                        case .none:
+                            EmptyView()
+                        }
+                    }
+
                     perspectiveBadge
 
                     if let repo = project.repo {

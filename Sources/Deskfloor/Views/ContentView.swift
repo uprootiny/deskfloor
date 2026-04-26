@@ -106,6 +106,9 @@ struct ContentView: View {
                 fleet.startPolling()
                 dataBus.poll(projects: store.projects)
             }
+            .onChange(of: dataBus.lastCIPoll) { _, _ in
+                dataBus.syncCIToProjects(store)
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .background(Df.canvas(scheme))
