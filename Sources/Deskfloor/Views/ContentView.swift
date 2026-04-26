@@ -9,6 +9,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     case paste
     case attention
     case loom
+    case sessions
 
     var id: String { rawValue }
 
@@ -22,6 +23,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .paste: "Paste"
         case .attention: "Attention"
         case .loom: "Loom"
+        case .sessions: "Sessions"
         }
     }
 
@@ -35,6 +37,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .paste: "doc.on.clipboard"
         case .attention: "exclamationmark.triangle"
         case .loom: "square.split.2x2"
+        case .sessions: "clock.arrow.2.circlepath"
         }
     }
 }
@@ -46,6 +49,7 @@ struct ContentView: View {
     @State var skein: SkeinStore = SkeinStore()
     @State var loom: LoomStore = LoomStore()
     @State var dataBus: DataBus = DataBus()
+    @State var sessionRegistry: SessionRegistry = SessionRegistry()
     @State private var viewMode: ViewMode = .board
     @State private var searchText = ""
     @State private var selectedPerspectives: Set<Perspective> = []
@@ -200,6 +204,9 @@ struct ContentView: View {
             }
             if viewMode == .loom {
                 LoomView(skein: skein, loom: loom)
+            }
+            if viewMode == .sessions {
+                SessionsView(store: store, registry: sessionRegistry)
             }
         }
     }
