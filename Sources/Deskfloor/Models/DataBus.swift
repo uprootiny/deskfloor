@@ -120,8 +120,9 @@ final class DataBus {
                 snapshots["hyle"]?.sessions = sessionNames
             }
 
+            let finalSnapshots = snapshots
             await MainActor.run {
-                self.fleetHosts = snapshots
+                self.fleetHosts = finalSnapshots
                 self.lastFleetPoll = Date()
             }
         } catch {
@@ -334,8 +335,9 @@ final class DataBus {
             alerts[i].acknowledged = true
         }
 
+        let finalAlerts = alerts
         await MainActor.run {
-            self.attentionItems = alerts
+            self.attentionItems = finalAlerts
         }
     }
 }
