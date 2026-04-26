@@ -69,8 +69,9 @@ final class SurfaceStore {
                 surfaces[i].projectID = self.matchProject(surface: surfaces[i], projects: projects)
             }
 
+            let finalSurfaces = surfaces
             await MainActor.run {
-                self.discoveredSurfaces = surfaces
+                self.discoveredSurfaces = finalSurfaces
                 self.isScanning = false
             }
         }
