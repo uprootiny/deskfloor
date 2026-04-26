@@ -8,6 +8,7 @@ struct DeskfloorApp: App {
     @State private var promptStore = PromptStore()
     @State private var historyStore = HistoryStore()
     @State private var frecency = FrecencyTracker()
+    @State private var sessionRegistry = SessionRegistry()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
@@ -22,6 +23,7 @@ struct DeskfloorApp: App {
                     appDelegate.promptStore = promptStore
                     appDelegate.historyStore = historyStore
                     appDelegate.frecency = frecency
+                    appDelegate.sessionRegistry = sessionRegistry
                     fleet.startPolling()
                 }
         }
@@ -52,10 +54,22 @@ struct DeskfloorApp: App {
             }
             .keyboardShortcut("d", modifiers: [.command])
 
-            Button("Open Launcher (Option+Space)") {
+            Button("Open Launcher (⌃Space)") {
                 appDelegate.toggleLauncher()
             }
-            .keyboardShortcut(" ", modifiers: [.option])
+            .keyboardShortcut(" ", modifiers: [.control])
+
+            Divider()
+
+            // Punch-through: open Claude Code on this app's own repo, ready to take direction.
+            Button("Engineer this Launcher (⌥⌘L)") {
+                Self.engineerThisLauncher(registry: sessionRegistry)
+            }
+            .keyboardShortcut("l", modifiers: [.option, .command])
+
+            Button("Refresh Session Index") {
+                sessionRegistry.refresh()
+            }
 
             Divider()
 
@@ -88,7 +102,55 @@ struct DeskfloorApp: App {
         } else {
             cmd = "ssh \(host)"
         }
-        openInITerm(cmd)
+        TerminalLauncher.run(cmd)
+    }
+
+    /// Punch-through: open Claude Code on the deskfloor repo itself, resuming the
+    /// most-recent session if one exists. Falls back to a fresh session.
+    static func engineerThisLauncher(registry: SessionRegistry) {
+        let path = NSString(string: "~/Nissan/deskfloor").expandingTildeInPath
+        let cmd: String
+        if let session = registry.mostRecent(forCwd: path) {
+            cmd = "claude --resume \(session.uuid)"
+            NSLog("[Deskfloor] Engineer-this resuming session \(session.uuid) (\(session.byteSize) bytes)")
+        } else {
+            cmd = "claude"
+            NSLog("[Deskfloor] Engineer-this opening fresh claude session")
+        }
+        TerminalLauncher.run(cmd, in: path)
+    }
+
+    /// Open Claude Code in a project, preferring to resume its most-recent session.
+    static func openClaudeForProject(_ project: Project, registry: SessionRegistry?, mode: ClaudeOpenMode = .resumeRecent) {
+        guard let path = project.localPath else {
+            if let repo = project.repo, let url = URL(string: "https://github.com/\(repo)") {
+                NSWorkspace.shared.open(url)
+            }
+            return
+        }
+        let cmd: String
+        switch mode {
+        case .resumeRecent:
+            if let session = registry?.mostRecent(forCwd: path) {
+                cmd = "claude --resume \(session.uuid)"
+            } else {
+                cmd = "claude"
+            }
+        case .resumeSpecific(let uuid):
+            cmd = "claude --resume \(uuid)"
+        case .fresh:
+            cmd = "claude"
+        case .freshWithPrimer(let primerPath):
+            cmd = "claude 'Read \(primerPath) and orient yourself, then ask what to do next.'"
+        }
+        TerminalLauncher.run(cmd, in: path)
+    }
+
+    enum ClaudeOpenMode {
+        case resumeRecent
+        case resumeSpecific(uuid: String)
+        case fresh
+        case freshWithPrimer(path: String)
     }
 
     /// Dispatch context to a new Claude Code session.
@@ -103,51 +165,26 @@ struct DeskfloorApp: App {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(context, forType: .string)
 
-        // claude takes a positional prompt argument
-        // Escape single quotes in context for shell
-        let escaped = context
-            .replacingOccurrences(of: "'", with: "'\\''")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
-        // Truncate if too long for command line (use file for long contexts)
-        var cmd = ""
-        if let dir = workDir {
-            cmd += "cd \(dir) && "
-        }
-
+        let cmd: String
         if context.count > 4000 {
             // Long context: tell claude to read the file
-            cmd += "claude 'Read \(contextFile.path) and proceed with the tasks described there.'"
+            cmd = "claude 'Read \(contextFile.path) and proceed with the tasks described there.'"
         } else {
             // Short context: pass directly as prompt
-            cmd += "claude '\(escaped)'"
+            let escaped = context.replacingOccurrences(of: "'", with: "'\\''")
+            cmd = "claude '\(escaped)'"
         }
 
-        openInITerm(cmd)
+        TerminalLauncher.run(cmd, in: workDir)
     }
 
+    /// Back-compat shim — older callsites pass a single shell command and expect
+    /// it to run in a terminal. Routed through TerminalLauncher.
     static func openInITerm(_ command: String) {
-        let escaped = command
-            .replacingOccurrences(of: "\\", with: "\\\\")
-            .replacingOccurrences(of: "\"", with: "\\\"")
-
-        // Source profile to get nix, claude, gh, etc. on PATH
-        let fullCmd = "source ~/.zshrc 2>/dev/null; export PATH=\\\"$HOME/.nix-profile/bin:$HOME/.local/bin:$PATH\\\"; \(escaped)"
-
-        let script = """
-        tell application "iTerm"
-            activate
-            create window with default profile command "/bin/zsh -l -c \\"\(fullCmd); exec /bin/zsh\\""
-        end tell
-        """
-
-        var error: NSDictionary?
-        if let appleScript = NSAppleScript(source: script) {
-            appleScript.executeAndReturnError(&error)
-        }
+        TerminalLauncher.run(command)
     }
 
-    static func executeAction(_ item: LauncherItem, promptStore: PromptStore? = nil, frecency: FrecencyTracker? = nil) {
+    static func executeAction(_ item: LauncherItem, promptStore: PromptStore? = nil, frecency: FrecencyTracker? = nil, sessionRegistry: SessionRegistry? = nil) {
         frecency?.recordAccess(itemID: item.id)
         switch item {
         case .host(let h):
@@ -155,20 +192,15 @@ struct DeskfloorApp: App {
         case .session(let h, let s):
             sshJump(host: h.name, session: s.name)
         case .project(let p):
-            if let localPath = p.localPath {
-                // Launch Claude Code session in the project directory
-                openInITerm("cd \(localPath) && claude")
-            } else if let repo = p.repo, let url = URL(string: "https://github.com/\(repo)") {
-                NSWorkspace.shared.open(url)
-            }
+            openClaudeForProject(p, registry: sessionRegistry, mode: .resumeRecent)
         case .command(_, let cmd):
-            openInITerm(cmd)
+            TerminalLauncher.run(cmd)
         case .prompt(let p):
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(p.content, forType: .string)
             promptStore?.recordUse(id: p.id)
         case .historyCommand(let h):
-            openInITerm(h.command)
+            TerminalLauncher.run(h.command)
         }
     }
 }
@@ -176,7 +208,8 @@ struct DeskfloorApp: App {
 // MARK: - AppDelegate (hotkey + panel lifecycle)
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    private let hotkeyManager = HotkeyManager()
+    private let toggleHotkey = HotkeyManager()
+    private let engineerHotkey = HotkeyManager()
     private let panelController = LauncherWindowController()
 
     // These are set by the App struct via onAppear or similar
@@ -185,6 +218,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     var promptStore: PromptStore?
     var historyStore: HistoryStore?
     var frecency: FrecencyTracker?
+    var sessionRegistry: SessionRegistry?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Don't hide from Dock yet — keep visible during development
@@ -196,12 +230,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         fleet?.startPolling()
 
-        // Register global hotkey: Option+Space
-        hotkeyManager.onTrigger = { [weak self] in
+        // Toggle launcher: ⌃Space
+        toggleHotkey.onTrigger = { [weak self] in
             self?.toggleLauncher()
         }
-        hotkeyManager.register()
-        NSLog("[Deskfloor] Hotkey registered: Control+Space")
+        toggleHotkey.register(keyCode: HotkeyManager.kcSpace, modifiers: HotkeyManager.modControl, id: 1)
+        NSLog("[Deskfloor] Hotkey registered: ⌃Space → toggle launcher")
+
+        // Engineer this Launcher: ⌥⌘L
+        engineerHotkey.onTrigger = { [weak self] in
+            let registry = self?.sessionRegistry ?? SessionRegistry()
+            DeskfloorApp.engineerThisLauncher(registry: registry)
+        }
+        engineerHotkey.register(
+            keyCode: HotkeyManager.kcL,
+            modifiers: HotkeyManager.modCommand | HotkeyManager.modOption,
+            id: 2
+        )
+        NSLog("[Deskfloor] Hotkey registered: ⌥⌘L → engineer this launcher")
     }
 
     func toggleLauncher() {
@@ -225,16 +271,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let historyStore = self.historyStore!
             NSLog("[Deskfloor] Showing launcher with \(store.projects.count) projects, \(fleet.hosts.count) hosts")
 
+            let registry = self.sessionRegistry ?? SessionRegistry()
+            self.sessionRegistry = registry
+            registry.refresh()
+
             let launcherView = LauncherPanelView(
                 store: store,
                 fleet: fleet,
                 promptStore: promptStore,
                 historyStore: historyStore,
+                sessionRegistry: registry,
                 onDismiss: { [weak self] in
                     self?.panelController.hide()
                 },
                 onAction: { [weak self] item in
-                    DeskfloorApp.executeAction(item, promptStore: self?.promptStore, frecency: self?.frecency)
+                    DeskfloorApp.executeAction(
+                        item,
+                        promptStore: self?.promptStore,
+                        frecency: self?.frecency,
+                        sessionRegistry: self?.sessionRegistry
+                    )
+                    self?.panelController.hide()
+                },
+                onProjectAction: { [weak self] project, mode in
+                    DeskfloorApp.openClaudeForProject(project, registry: self?.sessionRegistry, mode: mode)
                     self?.panelController.hide()
                 }
             )

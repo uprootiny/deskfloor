@@ -3,13 +3,26 @@ import Foundation
 
 /// Registers a global hotkey via Carbon API. Works without accessibility permissions.
 final class HotkeyManager {
+    // Modifier-mask constants exposed so callers don't need to import Carbon.HIToolbox
+    // (which pollutes the namespace and triggers SwiftUI type-check timeouts).
+    static let modControl: UInt32 = UInt32(controlKey)
+    static let modCommand: UInt32 = UInt32(cmdKey)
+    static let modOption: UInt32  = UInt32(optionKey)
+    static let modShift: UInt32   = UInt32(shiftKey)
+
+    // Common key codes
+    static let kcSpace: UInt32 = 49
+    static let kcL: UInt32 = 37
+
     private var hotkeyRef: EventHotKeyRef?
     private var handlerRef: EventHandlerRef?
     var onTrigger: (() -> Void)?
 
     /// Register a global hotkey. Default: Control+Space (keyCode 49, controlKey).
     /// Option+Space conflicts with macOS input source switching on some setups.
-    func register(keyCode: UInt32 = 49, modifiers: UInt32 = UInt32(controlKey)) {
+    /// `id` lets multiple HotkeyManager instances coexist without colliding on the
+    /// (signature, id) tuple Carbon keys hotkeys by.
+    func register(keyCode: UInt32 = 49, modifiers: UInt32 = UInt32(controlKey), id: UInt32 = 1) {
         unregister()
 
         var eventType = EventTypeSpec(
@@ -35,7 +48,7 @@ final class HotkeyManager {
 
         let hotkeyID = EventHotKeyID(
             signature: OSType(0x44464C52), // "DFLR"
-            id: 1
+            id: id
         )
 
         RegisterEventHotKey(

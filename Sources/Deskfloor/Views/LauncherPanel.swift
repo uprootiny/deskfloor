@@ -14,6 +14,7 @@ struct LauncherPanelView: View {
     @State var fleet: FleetStore
     @State var promptStore: PromptStore
     @State var historyStore: HistoryStore
+    @State var sessionRegistry: SessionRegistry = SessionRegistry()
     @State private var query = ""
     @State private var selectedIndex = 0
     @State private var toast: ToastMessage?
@@ -22,6 +23,8 @@ struct LauncherPanelView: View {
 
     var onDismiss: () -> Void
     var onAction: (LauncherItem) -> Void
+    /// Variant action for project items — caller decides how to open Claude.
+    var onProjectAction: ((Project, DeskfloorApp.ClaudeOpenMode) -> Void)?
 
     private let searcher = LauncherSearch()
 
@@ -217,7 +220,8 @@ struct LauncherPanelView: View {
                                 item: item,
                                 isSelected: idx == selectedIndex,
                                 isDisabled: isItemDisabled(item),
-                                scheme: scheme
+                                scheme: scheme,
+                                sessionCount: sessionCountFor(item)
                             )
                             .id(item.id)
                             .onTapGesture {
@@ -225,6 +229,7 @@ struct LauncherPanelView: View {
                                 selectedIndex = idx
                                 executeSelected()
                             }
+                            .contextMenu { rowMenu(for: item) }
                             .help(tooltipFor(item))
                         }
                     }
@@ -444,6 +449,89 @@ struct LauncherPanelView: View {
         }
         selectedIndex = 0
     }
+
+    // MARK: - Session-aware row context menu
+
+    private func sessionCountFor(_ item: LauncherItem) -> Int {
+        if case .project(let p) = item { return sessionRegistry.sessions(for: p).count }
+        return 0
+    }
+
+    @ViewBuilder
+    private func rowMenu(for item: LauncherItem) -> some View {
+        if case .project(let p) = item {
+            let sessions = sessionRegistry.sessions(for: p)
+            if let recent = sessions.first {
+                Button("Resume latest session (\(relativeAge(recent.lastModified)))") {
+                    triggerProject(p, mode: .resumeSpecific(uuid: recent.uuid))
+                }
+            }
+            if sessions.count > 1 {
+                Menu("Pick a session… (\(sessions.count))") {
+                    ForEach(sessions.prefix(20)) { s in
+                        Button("\(s.uuid.prefix(8)) — \(relativeAge(s.lastModified)) — \(s.byteSize / 1024) KB") {
+                            triggerProject(p, mode: .resumeSpecific(uuid: s.uuid))
+                        }
+                    }
+                }
+            }
+            Divider()
+            Button("Fresh Claude session") {
+                triggerProject(p, mode: .fresh)
+            }
+            if let primer = primerPath(for: p) {
+                Button("Fresh with primer (\((primer as NSString).lastPathComponent))") {
+                    triggerProject(p, mode: .freshWithPrimer(path: primer))
+                }
+            }
+            Divider()
+            if let repo = p.repo {
+                Button("Open \(repo) on GitHub") {
+                    if let url = URL(string: "https://github.com/\(repo)") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
+            if let path = p.localPath {
+                Button("Reveal in Finder") {
+                    NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: path)])
+                }
+            }
+        } else {
+            Button("Run") { onAction(item) }
+        }
+    }
+
+    private func triggerProject(_ p: Project, mode: DeskfloorApp.ClaudeOpenMode) {
+        if let onProjectAction {
+            onProjectAction(p, mode)
+        } else {
+            DeskfloorApp.openClaudeForProject(p, registry: sessionRegistry, mode: mode)
+        }
+        onDismiss()
+    }
+
+    private func primerPath(for p: Project) -> String? {
+        guard let path = p.localPath else { return nil }
+        let candidates = ["PLAN.md", "DEVNOTES.md", "README.md"]
+        let fm = FileManager.default
+        for name in candidates {
+            let full = (path as NSString).appendingPathComponent(name)
+            if fm.fileExists(atPath: full) { return full }
+        }
+        return nil
+    }
+
+    private func relativeAge(_ date: Date) -> String {
+        let s = -date.timeIntervalSinceNow
+        switch s {
+        case ..<60: return "just now"
+        case ..<3600: return "\(Int(s / 60))m ago"
+        case ..<86400: return "\(Int(s / 3600))h ago"
+        case ..<604800: return "\(Int(s / 86400))d ago"
+        default: return "\(Int(s / 604800))w ago"
+        }
+    }
 }
 
 // MARK: - Launcher Row
@@ -453,6 +541,7 @@ struct LauncherRow: View {
     let isSelected: Bool
     let isDisabled: Bool
     let scheme: ColorScheme
+    var sessionCount: Int = 0
 
     var body: some View {
         HStack(spacing: 0) {
@@ -496,6 +585,22 @@ struct LauncherRow: View {
             }
 
             Spacer()
+
+            // Session-count badge (projects with prior claude transcripts)
+            if sessionCount > 0 {
+                HStack(spacing: 3) {
+                    Image(systemName: "bubble.left.and.bubble.right.fill")
+                        .font(.system(size: 9))
+                    Text("\(sessionCount)")
+                        .font(Df.monoSmallFont)
+                }
+                .foregroundStyle(Df.agent.opacity(isSelected ? 1.0 : 0.7))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Df.agent.opacity(0.08))
+                .clipShape(RoundedRectangle(cornerRadius: Df.radiusSmall))
+                .help("\(sessionCount) Claude session\(sessionCount == 1 ? "" : "s") — right-click to pick")
+            }
 
             // Action hint — what Enter will do
             if isSelected && !isDisabled {
