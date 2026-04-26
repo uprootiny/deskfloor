@@ -1,9 +1,24 @@
 name: Deskfloor CI
 
+# Quota-conscious: single macOS runner, depended-on cache key (Package.resolved
+# captures resolved versions; Package.swift would miss `--update`-style changes).
+# workflow_dispatch lets us trigger manually without a push.
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
   pull_request:
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+  workflow_dispatch:
+
+# Cancel superseded runs on the same ref to keep the queue lean.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -11,13 +26,23 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+
       - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '15.4'
+
       - name: Cache SwiftPM
         uses: actions/cache@v4
         with:
-          path: .build
-          key: ${{ runner.os }}-spm-${{ hashFiles('Package.swift') }}
-      - name: Build
+          path: |
+            .build
+            ~/Library/Caches/org.swift.swiftpm
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved', 'Package.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
+      - name: Build (debug)
         run: swift build
+
+      - name: Build (release)
+        run: swift build -c release
