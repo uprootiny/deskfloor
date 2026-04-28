@@ -116,60 +116,152 @@ enum LauncherItem: Identifiable {
     }
 }
 
-/// Fuzzy search with frecency scoring.
+/// Composite scorer: prefix + contains + abbreviation + fuzzy(trigram) + keyword
+/// overlap + subtitle + frecency + recency + type bias. Transparent weights.
 struct LauncherSearch {
     private let analyzer = TextAnalyzer()
 
-    func search(query: String, items: [LauncherItem], frecency: FrecencyTracker? = nil, limit: Int = 20) -> [LauncherItem] {
+    func search(query: String, items: [LauncherItem], frecency: FrecencyTracker? = nil, limit: Int = 50) -> [LauncherItem] {
         guard !query.isEmpty else {
-            // Empty query: sort by frecency if available
             if let frecency {
                 return items
-                    .sorted { frecency.score(itemID: $0.id) > frecency.score(itemID: $1.id) }
+                    .sorted { lhs, rhs in
+                        let lf = frecency.score(itemID: lhs.id)
+                        let rf = frecency.score(itemID: rhs.id)
+                        if lf != rf { return lf > rf }
+                        return Self.recencyScore(lhs) > Self.recencyScore(rhs)
+                    }
                     .prefix(limit).map { $0 }
             }
-            return Array(items.prefix(limit))
+            return items
+                .sorted { Self.recencyScore($0) > Self.recencyScore($1) }
+                .prefix(limit).map { $0 }
         }
 
-        let queryLower = query.lowercased()
+        let q = query.lowercased()
         let queryTokens = Set(analyzer.tokenize(query))
+        let queryTrigrams = Self.trigrams(of: q)
 
         return items
             .map { item -> (LauncherItem, Double) in
+                let title = item.title.lowercased()
+                let initials = Self.initials(of: item.title)
                 var score = 0.0
-                let titleLower = item.title.lowercased()
 
-                // Exact prefix match (highest signal)
-                if titleLower.hasPrefix(queryLower) {
-                    score += 10.0
-                } else if titleLower.contains(queryLower) {
-                    score += 5.0
+                // 1. prefix
+                if title.hasPrefix(q) { score += 10 }
+                else if title.contains(q) { score += 5 }
+
+                // 2. abbreviation — "df" → "Deskfloor"
+                if initials.hasPrefix(q) { score += 8 }
+
+                // 3. fuzzy via trigram Jaccard
+                if !queryTrigrams.isEmpty {
+                    let t = Self.trigrams(of: title + " " + item.keywords.joined(separator: " ").lowercased())
+                    let inter = queryTrigrams.intersection(t).count
+                    let union = queryTrigrams.union(t).count
+                    if union > 0 {
+                        score += (Double(inter) / Double(union)) * 3
+                    }
                 }
 
-                // Token overlap
+                // 4. keyword token overlap
                 let itemTokens = Set(analyzer.tokenize(
                     item.title + " " + item.keywords.joined(separator: " ")
                 ))
-                let overlap = queryTokens.intersection(itemTokens)
                 if !queryTokens.isEmpty {
-                    score += Double(overlap.count) / Double(queryTokens.count) * 3.0
+                    let overlap = queryTokens.intersection(itemTokens)
+                    score += Double(overlap.count) / Double(queryTokens.count) * 3
                 }
 
-                // Subtitle match
-                if item.subtitle.lowercased().contains(queryLower) {
-                    score += 1.0
-                }
+                // 5. subtitle weak signal
+                if item.subtitle.lowercased().contains(q) { score += 1 }
 
-                // Frecency tiebreaker
+                // 6. frecency — log₂(use+1) so power-users don't dominate runaway
                 if let frecency {
-                    score += frecency.score(itemID: item.id) * 0.01
+                    let f = frecency.score(itemID: item.id)
+                    if f > 0 { score += log2(f + 1) }
                 }
+
+                // 7. recency — within 30 days, smoothly decays
+                score += Self.recencyScore(item) * 1.5
+
+                // 8. type bias — favor concrete things over commands when ambiguous
+                score *= Self.typeBias(item)
 
                 return (item, score)
             }
-            .filter { $0.1 > 0.01 }
+            .filter { $0.1 > 0.05 }
             .sorted { $0.1 > $1.1 }
             .prefix(limit)
             .map(\.0)
+    }
+
+    /// Letter sequence formed by uppercase initials and post-separator letters.
+    /// "Deskfloor" → "d", "raindesk-app" → "ra", "agent slack" → "as".
+    static func initials(of s: String) -> String {
+        var out: [Character] = []
+        var atBoundary = true
+        for ch in s {
+            if ch.isLetter && atBoundary {
+                out.append(Character(ch.lowercased()))
+                atBoundary = false
+            } else if !ch.isLetter && !ch.isNumber {
+                atBoundary = true
+            } else if ch.isUppercase {
+                out.append(Character(ch.lowercased()))
+            } else {
+                atBoundary = false
+            }
+        }
+        return String(out)
+    }
+
+    /// Padded trigrams of a string. Cheap and good enough for fuzzy ranking.
+    static func trigrams(of s: String) -> Set<String> {
+        guard !s.isEmpty else { return [] }
+        let padded = "  " + s + "  "
+        var out = Set<String>()
+        let chars = Array(padded)
+        if chars.count >= 3 {
+            for i in 0...(chars.count - 3) {
+                out.insert(String(chars[i...i+2]))
+            }
+        }
+        return out
+    }
+
+    /// 0.0 (years old) → 1.0 (right now). Linear within 30 days, capped.
+    static func recencyScore(_ item: LauncherItem) -> Double {
+        guard let last = recencyAnchor(item) else { return 0 }
+        let age = -last.timeIntervalSinceNow
+        if age <= 0 { return 1 }
+        let days = age / 86400
+        return max(0, 1 - days / 30)
+    }
+
+    private static func recencyAnchor(_ item: LauncherItem) -> Date? {
+        switch item {
+        case .project(let p): return p.lastActivity
+        case .historyCommand(let h): return h.lastUsed
+        case .prompt(let p): return p.lastUsed
+        case .session(_, _): return nil
+        case .host(_): return nil
+        case .command(_, _): return nil
+        case .tile(_): return nil
+        }
+    }
+
+    /// Per-type ergonomic bias. Projects and sessions outrank fillers when scores tie.
+    static func typeBias(_ item: LauncherItem) -> Double {
+        switch item {
+        case .project: return 1.00
+        case .host: return 0.95
+        case .session: return 0.90
+        case .prompt: return 0.80
+        case .historyCommand: return 0.65
+        case .tile: return 0.55
+        case .command: return 0.50
+        }
     }
 }

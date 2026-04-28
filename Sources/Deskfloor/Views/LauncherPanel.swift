@@ -34,8 +34,13 @@ struct LauncherPanelView: View {
         let color: Color
     }
 
+    /// The catalog: every searchable thing, no per-source slicing. The scorer
+    /// + per-call result limit handle the volume — pre-truncating here meant
+    /// older projects (ghostty etc.) never reached the index at all.
     private var allItems: [LauncherItem] {
         var items: [LauncherItem] = []
+
+        // Hosts + tmux sessions
         for host in fleet.hosts {
             items.append(.host(host))
             for session in host.sessions {
@@ -43,31 +48,26 @@ struct LauncherPanelView: View {
             }
         }
 
-        let topPrompts = promptStore.prompts
-            .sorted { $0.useCount > $1.useCount }
-            .prefix(15)
-        for prompt in topPrompts {
+        // Prompts — full set; most-used float up via frecency × type bias
+        for prompt in promptStore.prompts {
             items.append(.prompt(prompt))
         }
 
-        let visible = store.projects
-            .filter { $0.status != .archived }
-            .sorted { ($0.lastActivity ?? .distantPast) > ($1.lastActivity ?? .distantPast) }
-        for project in visible.prefix(50) {
+        // ALL non-archived projects — let the scorer rank them.
+        for project in store.projects where project.status != .archived {
             items.append(.project(project))
         }
 
-        for cmd in historyStore.commands.prefix(20) {
+        // Recent shell history
+        for cmd in historyStore.commands.prefix(50) {
             items.append(.historyCommand(cmd))
         }
 
-        // Tile presets are noisy when the launcher first opens — only include
-        // them when the user has typed something tile-related (or anything,
-        // really; empty-query view stays focused on what was used recently).
+        // Tile presets — only when the query looks tile-related, else noise.
         let q = query.lowercased()
         let tileTriggers: Set<String> = ["t", "ti", "til", "tile", "left", "right", "top", "bottom", "third", "thir", "half", "quarter", "fill", "center", "cente"]
-        let queryLooksTileish = !q.isEmpty && tileTriggers.contains(where: { q.hasPrefix($0) || $0.hasPrefix(q) })
-        if queryLooksTileish {
+        let looksTileish = !q.isEmpty && tileTriggers.contains(where: { q.hasPrefix($0) || $0.hasPrefix(q) })
+        if looksTileish {
             for preset in WindowTiling.Preset.allCases {
                 items.append(.tile(preset))
             }
