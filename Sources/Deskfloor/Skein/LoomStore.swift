@@ -7,21 +7,25 @@ import Foundation
 final class LoomStore {
     var schemaVersion: Int = 1
     /// Ordered list of thread IDs visible as warps. Capped at 7 by design.
-    var visibleWarps: [UUID] = []
-    /// Fired wefts, oldest first.
-    var wefts: [Weft] = []
+    private(set) var visibleWarps: [UUID] = []
+    /// Fired wefts, oldest first. FIFO-evicted past `weftCap`.
+    private(set) var wefts: [Weft] = []
     /// Excerpt IDs collected on the bottom shelf, oldest first.
-    var shelfExcerptIDs: [UUID] = []
+    private(set) var shelfExcerptIDs: [UUID] = []
     /// True once seedOnce has populated visibleWarps from skein.
     /// Prevents a cleared warp set from being silently re-populated on next view appear.
-    var hasSeeded: Bool = false
+    private(set) var hasSeeded: Bool = false
+
+    /// Maximum retained wefts. Older are FIFO-evicted on append.
+    /// At ~1 KB per weft this caps the store around 50 KB; revisit if responses grow.
+    private let weftCap: Int = 50
 
     private let storeURL: URL
 
-    /// Debounce window for save coalescing. Mock-response scheduling fires
-    /// 3-7 mutations within ~600 ms; without coalescing each writes the whole
-    /// snapshot to disk. With this, all mutations within 200 ms produce a
-    /// single write.
+    /// Debounce window for save coalescing. Picker sessions and future
+    /// streaming-response updates fire bursts of mutations; without coalescing
+    /// each writes the whole snapshot to disk. With this, all mutations within
+    /// 200 ms produce a single write.
     private let saveDebounce: TimeInterval = 0.2
     private var pendingSaveWorkItem: DispatchWorkItem?
 
@@ -115,7 +119,8 @@ final class LoomStore {
 
     /// Fire a weft across all currently-visible warps. Pre-seeds one
     /// pending Response per warp so the UI can render placeholder slots
-    /// immediately. Mock responses populate via staggered timer.
+    /// immediately. Real dispatch (or a debug-only DemoDispatcher) fills
+    /// the responses asynchronously.
     @discardableResult
     func fireWeft(prompt: String, anchorTurn: Int) -> Weft {
         let pending = visibleWarps.map { Weft.Response(warpID: $0, status: .pending) }
@@ -126,34 +131,32 @@ final class LoomStore {
             responses: pending
         )
         wefts.append(weft)
+        if wefts.count > weftCap {
+            wefts.removeFirst(wefts.count - weftCap)
+        }
         save()
-        scheduleMockResponses(for: weft.id)
         return weft
     }
 
-    /// Stub: fill each pending response with a placeholder string after a
-    /// per-warp delay. Real LLM dispatch slots in here later.
-    private func scheduleMockResponses(for weftID: UUID) {
-        guard let weft = wefts.first(where: { $0.id == weftID }) else { return }
-        for (idx, response) in weft.responses.enumerated() {
-            let delay = 0.22 + Double(idx) * 0.14
-            DispatchQueue.main.asyncAfter(deadline: .now() + delay) { [weak self] in
-                self?.completeMockResponse(
-                    weftID: weftID,
-                    responseID: response.id,
-                    content: "[mock] response from warp \(idx + 1)"
-                )
-            }
-        }
-    }
-
-    private func completeMockResponse(weftID: UUID, responseID: UUID, content: String) {
+    /// External completion hook — called by the dispatcher (real or demo)
+    /// when a warp's response arrives. No-op if the weft or response was evicted.
+    func completeResponse(weftID: UUID, responseID: UUID, content: String) {
         guard let wIdx = wefts.firstIndex(where: { $0.id == weftID }),
               let rIdx = wefts[wIdx].responses.firstIndex(where: { $0.id == responseID })
         else { return }
         wefts[wIdx].responses[rIdx].content = content
         wefts[wIdx].responses[rIdx].status = .complete
         wefts[wIdx].responses[rIdx].receivedAt = Date()
+        save()
+    }
+
+    /// External streaming hook — incremental content append.
+    func streamResponse(weftID: UUID, responseID: UUID, appendingContent: String) {
+        guard let wIdx = wefts.firstIndex(where: { $0.id == weftID }),
+              let rIdx = wefts[wIdx].responses.firstIndex(where: { $0.id == responseID })
+        else { return }
+        wefts[wIdx].responses[rIdx].content += appendingContent
+        wefts[wIdx].responses[rIdx].status = .streaming
         save()
     }
 

@@ -32,12 +32,13 @@ struct Weft: Identifiable, Codable, Hashable {
 
     /// One response from one warp. Status carries the lifecycle so the UI
     /// can render pending/streaming/error states distinctly.
+    /// `receivedAt` stays nil while pending; set on transition to .complete.
     struct Response: Identifiable, Codable, Hashable {
         let id: UUID
         var warpID: UUID
         var content: String
         var status: Status
-        var receivedAt: Date
+        var receivedAt: Date?
 
         enum Status: String, Codable, Hashable {
             case pending, streaming, complete, error
@@ -47,7 +48,7 @@ struct Weft: Identifiable, Codable, Hashable {
              warpID: UUID,
              content: String = "",
              status: Status = .pending,
-             receivedAt: Date = Date()) {
+             receivedAt: Date? = nil) {
             self.id = id
             self.warpID = warpID
             self.content = content
