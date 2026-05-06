@@ -4,6 +4,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     case board
     case attention
     case sessions
+    case pulse
     case loom
     case perspective
     case timeline
@@ -14,7 +15,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
     var id: String { rawValue }
 
     /// Modes shown directly in the toolbar — the daily drivers.
-    static let primary: [ViewMode] = [.board, .attention, .sessions, .loom]
+    static let primary: [ViewMode] = [.board, .attention, .sessions, .pulse, .loom]
 
     /// Modes hidden in a "More" overflow — historical / experimental / niche.
     static let secondary: [ViewMode] = [.perspective, .timeline, .graph, .skein, .paste]
@@ -32,6 +33,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .attention: "Attention"
         case .loom: "Loom"
         case .sessions: "Sessions"
+        case .pulse: "Pulse"
         }
     }
 
@@ -46,6 +48,7 @@ enum ViewMode: String, CaseIterable, Identifiable {
         case .attention: "exclamationmark.triangle"
         case .loom: "square.split.2x2"
         case .sessions: "clock.arrow.2.circlepath"
+        case .pulse: "waveform.path.ecg"
         }
     }
 }
@@ -216,6 +219,9 @@ struct ContentView: View {
             }
             if viewMode == .sessions {
                 SessionsView(store: store, registry: sessionRegistry)
+            }
+            if viewMode == .pulse {
+                PulseView()
             }
         }
     }
